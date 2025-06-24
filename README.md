@@ -1,2 +1,4 @@
-# gambeling-simulator
-A command line tool on linux to simulate gambeling games
+# Gambling Simulator
+
+Gambling Simulator is a fast-paced command-line game all about taking risks.
+Start with a small fortune and try your luck — just don’t lose it all!
