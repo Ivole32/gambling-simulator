@@ -88,7 +88,7 @@ class game:
 
 if __name__ == "__main__":
     start_money = 1000
-    start_inventory = {"house": 275000}
+    start_inventory = {"house": 25000}
 
     game = game(start_money, start_inventory)
     game.main_loop()
