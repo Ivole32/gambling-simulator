@@ -1,6 +1,8 @@
 import customtkinter
 import subprocess
 import random
+import time
+import datetime
 from typing import Dict, Callable
 
 app = customtkinter.CTk()
@@ -21,17 +23,88 @@ sidebar_expanded = False
 
 inventory: Dict[str, int] = {}
 shop_items = {
-    "🍎": {"name": "Lucky Apple", "price": 50, "description": "Brings good luck!"},
-    "💎": {"name": "Diamond Ring", "price": 500, "description": "Shiny and valuable"},
-    "🎩": {"name": "Top Hat", "price": 200, "description": "Classy headwear"},
-    "🕶️": {"name": "Cool Sunglasses", "price": 150, "description": "Look cool while gambling"},
-    "🎲": {"name": "Lucky Dice", "price": 100, "description": "Roll your way to fortune"},
-    "🪙": {"name": "Golden Coin", "price": 75, "description": "A collector's item"},
-    "🎯": {"name": "Dart Set", "price": 120, "description": "For precise betting"},
-    "🃏": {"name": "Magic Cards", "price": 300, "description": "May help with card games"},
-    "🎰": {"name": "Mini Slot Machine", "price": 800, "description": "Your own personal slots"},
-    "🏆": {"name": "Trophy", "price": 1000, "description": "Symbol of victory"}
+    "🍎": {"name": "Lucky Apple", "base_price": 50, "price": 50, "volatility": 0.15, "trend": 0.0, "description": "Brings good luck!"},
+    "💎": {"name": "Diamond Ring", "base_price": 500, "price": 500, "volatility": 0.25, "trend": 0.02, "description": "Shiny and valuable"},
+    "🎩": {"name": "Top Hat", "base_price": 200, "price": 200, "volatility": 0.10, "trend": 0.01, "description": "Classy headwear"},
+    "🕶️": {"name": "Cool Sunglasses", "base_price": 150, "price": 150, "volatility": 0.20, "trend": -0.01, "description": "Look cool while gambling"},
+    "🎲": {"name": "Lucky Dice", "base_price": 100, "price": 100, "volatility": 0.12, "trend": 0.005, "description": "Roll your way to fortune"},
+    "🪙": {"name": "Golden Coin", "base_price": 75, "price": 75, "volatility": 0.30, "trend": 0.03, "description": "A collector's item"},
+    "🎯": {"name": "Dart Set", "base_price": 120, "price": 120, "volatility": 0.08, "trend": 0.0, "description": "For precise betting"},
+    "🃏": {"name": "Magic Cards", "base_price": 300, "price": 300, "volatility": 0.18, "trend": 0.015, "description": "May help with card games"},
+    "🎰": {"name": "Mini Slot Machine", "base_price": 800, "price": 800, "volatility": 0.22, "trend": 0.025, "description": "Your own personal slots"},
+    "🏆": {"name": "Trophy", "base_price": 1000, "price": 1000, "volatility": 0.35, "trend": 0.04, "description": "Symbol of victory"}
 }
+
+# Price update system
+import time
+last_price_update = time.time()
+price_update_interval = 30  # Update prices every 30 seconds
+
+def update_market_prices():
+    """Update item prices based on market volatility and trends"""
+    global shop_items, last_price_update
+    
+    current_time = time.time()
+    if current_time - last_price_update < price_update_interval:
+        return
+    
+    last_price_update = current_time
+    
+    for emoji, item in shop_items.items():
+        # Random market fluctuation
+        volatility_change = random.uniform(-item["volatility"], item["volatility"])
+        
+        # Long-term trend (some items gain value, others lose)
+        trend_change = item["trend"]
+        
+        # Occasionally shift trends (5% chance per update)
+        if random.random() < 0.05:
+            item["trend"] = random.uniform(-0.02, 0.04)  # New trend between -2% and +4%
+        
+        # Market events (1% chance for significant price movement)
+        market_event_multiplier = 1.0
+        if random.random() < 0.01:
+            market_event_multiplier = random.choice([0.7, 0.8, 1.2, 1.3])  # Market crash or boom
+        
+        # Total price change (as percentage)
+        total_change = (volatility_change + trend_change) * market_event_multiplier
+        
+        # Apply change to current price
+        new_price = item["price"] * (1 + total_change)
+        
+        # Keep prices within reasonable bounds (20% to 300% of base price)
+        min_price = item["base_price"] * 0.2
+        max_price = item["base_price"] * 3.0
+        
+        item["price"] = max(min_price, min(max_price, int(new_price)))
+
+def get_price_trend_emoji(emoji):
+    """Get trend emoji based on current vs base price"""
+    item = shop_items[emoji]
+    current_ratio = item["price"] / item["base_price"]
+    
+    if current_ratio >= 1.2:
+        return "📈"  # Significantly up
+    elif current_ratio >= 1.05:
+        return "📊"  # Slightly up
+    elif current_ratio <= 0.8:
+        return "📉"  # Significantly down
+    elif current_ratio <= 0.95:
+        return "📋"  # Slightly down
+    else:
+        return "➡️"  # Stable
+
+def get_price_change_color(emoji):
+    """Get color based on price change"""
+    item = shop_items[emoji]
+    current_ratio = item["price"] / item["base_price"]
+    
+    if current_ratio >= 1.05:
+        return ("#27AE60", "#2ECC71")  # Green for gains
+    elif current_ratio <= 0.95:
+        return ("#E74C3C", "#C0392B")  # Red for losses
+    else:
+        return ("#F39C12", "#E67E22")  # Orange for stable
 
 transaction_history = []  # List of transactions: {"type": "income/expense", "amount": int, "description": str, "timestamp": str}
 loan_info = {"amount": 0, "interest_rate": 0.0, "monthly_payment": 0, "remaining_payments": 0}
@@ -39,7 +112,6 @@ credit_limit = 5000
 
 def add_transaction(transaction_type: str, amount: int, description: str) -> None:
     """Add a transaction to the history for banking tracking"""
-    import datetime
     global transaction_history
     transaction_history.append({
         "type": transaction_type,
@@ -246,10 +318,13 @@ def show_casino() -> None:
         global current_bet, game_active
         current_bet = 0
         game_active = False
-        bet_submit_button.configure(state="normal")
-        win_frame.pack_forget()
-        bet_entry.delete(0, "end")
-        bet_entry.insert(0, "0")
+        try:
+            bet_submit_button.configure(state="normal")
+            win_frame.pack_forget()
+            bet_entry.delete(0, "end")
+            bet_entry.insert(0, "0")
+        except:
+            pass  # UI elements destroyed
 
 def show_number_guesser() -> None:
     global current_frame, current_title, current_bet_frame, current_balance_label, balance, current_bet, game_active
@@ -411,15 +486,24 @@ def show_number_guesser() -> None:
                 add_transaction("income", winnings, "Number Guesser Win")
                 if 'update_bank_display' in globals():
                     update_bank_display()
-                current_balance_label.configure(text=f"Balance: ${balance}")
-                result_label.configure(text=f"🎉 YOU WON! Number was {winning_number}. Won ${winnings}!", text_color="green")
+                try:
+                    current_balance_label.configure(text=f"Balance: ${balance}")
+                    result_label.configure(text=f"🎉 YOU WON! Number was {winning_number}. Won ${winnings}!", text_color="green")
+                except:
+                    pass  # UI elements destroyed
             else:
-                result_label.configure(text=f"😞 You lost! Number was {winning_number}. Your guess: {guess}", text_color="red")
+                try:
+                    result_label.configure(text=f"😞 You lost! Number was {winning_number}. Your guess: {guess}", text_color="red")
+                except:
+                    pass  # UI elements destroyed
             
-            bet_submit_button.configure(state="normal")
-            bet_entry.delete(0, "end")
-            bet_entry.insert(0, "0")
-            number_entry.delete(0, "end")
+            try:
+                bet_submit_button.configure(state="normal")
+                bet_entry.delete(0, "end")
+                bet_entry.insert(0, "0")
+                number_entry.delete(0, "end")
+            except:
+                pass  # UI elements destroyed
             
         except ValueError:
             result_label.configure(text="Please enter valid numbers!")
@@ -600,14 +684,23 @@ def show_roulette() -> None:
                 add_transaction("income", winnings, "Roulette Win")
                 if 'update_bank_display' in globals():
                     update_bank_display()
-                current_balance_label.configure(text=f"Balance: ${balance}")
-                result_label.configure(text=f"🎉 Winner! Number {number} ({color}). Won ${winnings}!", text_color="green")
+                try:
+                    current_balance_label.configure(text=f"Balance: ${balance}")
+                    result_label.configure(text=f"🎉 Winner! Number {number} ({color}). Won ${winnings}!", text_color="green")
+                except:
+                    pass  # UI elements destroyed
             else:
-                result_label.configure(text=f"😞 Number {number} ({color}). Better luck next time!", text_color="red")
+                try:
+                    result_label.configure(text=f"😞 Number {number} ({color}). Better luck next time!", text_color="red")
+                except:
+                    pass  # UI elements destroyed
             
-            spin_button.configure(state="normal")
-            bet_entry.delete(0, "end")
-            bet_entry.insert(0, "0")
+            try:
+                spin_button.configure(state="normal")
+                bet_entry.delete(0, "end")
+                bet_entry.insert(0, "0")
+            except:
+                pass  # UI elements destroyed
 
 def show_blackjack() -> None:
     global current_frame, current_title, current_bet_frame, current_balance_label, balance, current_bet, game_active
@@ -786,18 +879,24 @@ def show_blackjack() -> None:
             update_display()
             
             if calculate_score(player_cards) == 21:
-                result_label.configure(text="🎉 Blackjack! You win!", text_color="green")
+                try:
+                    result_label.configure(text="🎉 Blackjack! You win!", text_color="green")
+                    current_balance_label.configure(text=f"Balance: ${balance}")
+                except:
+                    pass  # UI elements destroyed
                 balance += int(current_bet * 2.5)
                 add_transaction("income", int(current_bet * 2.5), "Blackjack Win")
                 if 'update_bank_display' in globals():
                     update_bank_display()
-                current_balance_label.configure(text=f"Balance: ${balance}")
                 game_over = True
             else:
-                hit_button.configure(state="normal")
-                stand_button.configure(state="normal")
-                deal_button.configure(state="disabled")
-                result_label.configure(text="Hit or Stand?")
+                try:
+                    hit_button.configure(state="normal")
+                    stand_button.configure(state="normal")
+                    deal_button.configure(state="disabled")
+                    result_label.configure(text="Hit or Stand?")
+                except:
+                    pass  # UI elements destroyed
                 
         except ValueError:
             result_label.configure(text="Please enter a valid number!")
@@ -825,11 +924,14 @@ def show_blackjack() -> None:
         update_display()
         
         if player_score > 21:
-            result_label.configure(text=f"😞 Bust! You lose ${current_bet}!", text_color="red")
+            try:
+                result_label.configure(text=f"😞 Bust! You lose ${current_bet}!", text_color="red")
+                hit_button.configure(state="disabled")
+                stand_button.configure(state="disabled")
+                deal_button.configure(state="normal")
+            except:
+                pass  # UI elements destroyed
             game_over = True
-            hit_button.configure(state="disabled")
-            stand_button.configure(state="disabled")
-            deal_button.configure(state="normal")
     
     def stand() -> None:
         nonlocal dealer_cards, game_over
@@ -844,28 +946,43 @@ def show_blackjack() -> None:
         update_display()
         
         if dealer_score > 21:
-            result_label.configure(text=f"🎉 Dealer busts! You win ${current_bet * 2}!", text_color="green")
+            try:
+                result_label.configure(text=f"🎉 Dealer busts! You win ${current_bet * 2}!", text_color="green")
+            except:
+                pass  # UI elements destroyed
             balance += current_bet * 2
             add_transaction("income", current_bet * 2, "Blackjack Win")
         elif player_score > dealer_score:
-            result_label.configure(text=f"🎉 You win ${current_bet * 2}!", text_color="green")
+            try:
+                result_label.configure(text=f"🎉 You win ${current_bet * 2}!", text_color="green")
+            except:
+                pass  # UI elements destroyed
             balance += current_bet * 2
             add_transaction("income", current_bet * 2, "Blackjack Win")
         elif player_score == dealer_score:
-            result_label.configure(text="🤝 Push! Bet returned.", text_color="yellow")
+            try:
+                result_label.configure(text="🤝 Push! Bet returned.", text_color="yellow")
+            except:
+                pass  # UI elements destroyed
             balance += current_bet
             add_transaction("income", current_bet, "Blackjack Push")
         else:
-            result_label.configure(text=f"😞 Dealer wins! You lose ${current_bet}!", text_color="red")
+            try:
+                result_label.configure(text=f"😞 Dealer wins! You lose ${current_bet}!", text_color="red")
+            except:
+                pass  # UI elements destroyed
         
         if 'update_bank_display' in globals():
             update_bank_display()
-        current_balance_label.configure(text=f"Balance: ${balance}")
-        hit_button.configure(state="disabled")
-        stand_button.configure(state="disabled")
-        deal_button.configure(state="normal")
-        bet_entry.delete(0, "end")
-        bet_entry.insert(0, "0")
+        try:
+            current_balance_label.configure(text=f"Balance: ${balance}")
+            hit_button.configure(state="disabled")
+            stand_button.configure(state="disabled")
+            deal_button.configure(state="normal")
+            bet_entry.delete(0, "end")
+            bet_entry.insert(0, "0")
+        except:
+            pass  # UI elements destroyed
 
 def show_dice_roll() -> None:
     global current_frame, current_title, current_bet_frame, current_balance_label, balance, current_bet, game_active
@@ -1011,9 +1128,15 @@ def show_dice_roll() -> None:
             balance -= bet_amount
             add_transaction("expense", bet_amount, "Dice Roll Bet")
             if 'update_bank_display' in globals():
-                update_bank_display()
-            current_balance_label.configure(text=f"Balance: ${balance}")
-            roll_button.configure(state="disabled")
+                try:
+                    update_bank_display()
+                except:
+                    pass  # Bank UI elements may not exist
+            try:
+                current_balance_label.configure(text=f"Balance: ${balance}")
+                roll_button.configure(state="disabled")
+            except:
+                pass  # UI elements destroyed
             animate_dice(dice1_label, dice2_label, result_label, 0, selected_bet_type.get())
         except ValueError:
             result_label.configure(text="Please enter a valid number!")
@@ -1023,18 +1146,26 @@ def show_dice_roll() -> None:
         global balance
         if count < 10:
             dice_symbols = ["⚀", "⚁", "⚂", "⚃", "⚄", "⚅"]
-            dice1_label.configure(text=random.choice(dice_symbols))
-            dice2_label.configure(text=random.choice(dice_symbols))
-            result_label.configure(text="Rolling...")
-            app.after(100, lambda: animate_dice(dice1_label, dice2_label, result_label, count + 1, bet_type))
+            try:
+                dice1_label.configure(text=random.choice(dice_symbols))
+                dice2_label.configure(text=random.choice(dice_symbols))
+                result_label.configure(text="Rolling...")
+                app.after(100, lambda: animate_dice(dice1_label, dice2_label, result_label, count + 1, bet_type))
+            except:
+                # UI elements have been destroyed, stop animation
+                return
         else:
             dice1 = random.randint(1, 6)
             dice2 = random.randint(1, 6)
             total = dice1 + dice2
             
             dice_symbols = ["⚀", "⚁", "⚂", "⚃", "⚄", "⚅"]
-            dice1_label.configure(text=dice_symbols[dice1-1])
-            dice2_label.configure(text=dice_symbols[dice2-1])
+            try:
+                dice1_label.configure(text=dice_symbols[dice1-1])
+                dice2_label.configure(text=dice_symbols[dice2-1])
+            except:
+                # UI elements have been destroyed, stop processing
+                return
             
             won = False
             multiplier = 0
@@ -1055,14 +1186,23 @@ def show_dice_roll() -> None:
                 add_transaction("income", winnings, "Dice Roll Win")
                 if 'update_bank_display' in globals():
                     update_bank_display()
-                current_balance_label.configure(text=f"Balance: ${balance}")
-                result_label.configure(text=f"🎉 You won ${winnings}! (Total: {total})", text_color="green")
+                try:
+                    current_balance_label.configure(text=f"Balance: ${balance}")
+                    result_label.configure(text=f"🎉 You won ${winnings}! (Total: {total})", text_color="green")
+                except:
+                    pass  # UI elements destroyed
             else:
-                result_label.configure(text=f"😞 You lost! (Total: {total})", text_color="red")
+                try:
+                    result_label.configure(text=f"😞 You lost! (Total: {total})", text_color="red")
+                except:
+                    pass  # UI elements destroyed
             
-            roll_button.configure(state="normal")
-            bet_entry.delete(0, "end")
-            bet_entry.insert(0, "0")
+            try:
+                roll_button.configure(state="normal")
+                bet_entry.delete(0, "end")
+                bet_entry.insert(0, "0")
+            except:
+                pass  # UI elements destroyed
 
 def show_slot_machine() -> None:
     global current_frame, current_title, current_bet_frame, current_balance_label, balance, current_bet, game_active
@@ -1253,19 +1393,31 @@ def show_slot_machine() -> None:
                     multiplier = 3
                 winnings = current_bet * multiplier
                 balance += winnings
-                current_balance_label.configure(text=f"Balance: ${balance}")
-                result_label.configure(text=f"🎉 JACKPOT! Won ${winnings}!", text_color="green")
+                try:
+                    current_balance_label.configure(text=f"Balance: ${balance}")
+                    result_label.configure(text=f"🎉 JACKPOT! Won ${winnings}!", text_color="green")
+                except:
+                    pass  # UI elements destroyed
             elif final1 == final2 or final2 == final3 or final1 == final3:
                 winnings = current_bet * 2
                 balance += winnings
-                current_balance_label.configure(text=f"Balance: ${balance}")
-                result_label.configure(text=f"🎊 Pair! Won ${winnings}!", text_color="green")
+                try:
+                    current_balance_label.configure(text=f"Balance: ${balance}")
+                    result_label.configure(text=f"🎊 Pair! Won ${winnings}!", text_color="green")
+                except:
+                    pass  # UI elements destroyed
             else:
-                result_label.configure(text="😞 No match. Try again!", text_color="red")
+                try:
+                    result_label.configure(text="😞 No match. Try again!", text_color="red")
+                except:
+                    pass  # UI elements destroyed
             
-            spin_button.configure(state="normal")
-            bet_entry.delete(0, "end")
-            bet_entry.insert(0, "0")
+            try:
+                spin_button.configure(state="normal")
+                bet_entry.delete(0, "end")
+                bet_entry.insert(0, "0")
+            except:
+                pass  # UI elements destroyed
 
 def show_shop() -> None:
     global current_frame, current_title, current_bet_frame, current_balance_label, balance
@@ -1319,22 +1471,72 @@ def show_shop() -> None:
     content_frame.pack(fill="both", expand=True, padx=20, pady=(0, 20))
     
     def switch_to_shop_tab():
+        # Update market prices before displaying
+        update_market_prices()
+        
         for widget in content_frame.winfo_children():
             widget.destroy()
         
         shop_tab_btn.configure(fg_color=("#4ECDC4", "#26D0CE"))
         inventory_tab_btn.configure(fg_color=("#555555", "#404040"))
         
-        shop_header = customtkinter.CTkLabel(master=content_frame, 
-                                           text="🛍️ Welcome to the Shop!", 
+        # Auto-refresh mechanism for shop prices
+        def auto_refresh_shop():
+            # Only refresh if we're still on the shop tab
+            if shop_tab_btn.cget("fg_color") == ("#4ECDC4", "#26D0CE"):
+                old_prices = {emoji: item["price"] for emoji, item in shop_items.items()}
+                update_market_prices()
+                
+                # Check if any prices changed
+                prices_changed = any(shop_items[emoji]["price"] != old_prices[emoji] for emoji in old_prices)
+                
+                if prices_changed:
+                    # Refresh the shop display
+                    switch_to_shop_tab()
+                else:
+                    # Just update the countdown timer
+                    try:
+                        next_update = int(price_update_interval - (time.time() - last_price_update))
+                        status_label.configure(text=f"⏰ Next price update in: {max(0, next_update)}s")
+                    except:
+                        pass
+                
+                # Schedule next check in 1 second
+                app.after(1000, auto_refresh_shop)
+        
+        # Start auto-refresh
+        app.after(1000, auto_refresh_shop)
+        
+        # Enhanced header with market info
+        header_frame = customtkinter.CTkFrame(master=content_frame, fg_color="transparent")
+        header_frame.pack(fill="x", pady=20)
+        
+        shop_header = customtkinter.CTkLabel(master=header_frame, 
+                                           text="🛍️ Dynamic Marketplace", 
                                            font=("Arial", 24, "bold"),
                                            text_color=("#FFD700", "#FFD700"))
-        shop_header.pack(pady=20)
+        shop_header.pack()
+        
+        market_info = customtkinter.CTkLabel(master=header_frame, 
+                                           text="📊 Prices update every 30 seconds based on market trends\n💡 Buy low, sell high to maximize profit!", 
+                                           font=("Arial", 12),
+                                           text_color=("#95A5A6", "#7F8C8D"))
+        market_info.pack(pady=(5, 0))
+        
+        # Market status indicator
+        next_update = int(price_update_interval - (time.time() - last_price_update))
+        status_label = customtkinter.CTkLabel(master=header_frame, 
+                                            text=f"⏰ Next price update in: {max(0, next_update)}s", 
+                                            font=("Arial", 10),
+                                            text_color=("#3498DB", "#2980B9"))
+        status_label.pack()
         
         for emoji, item_data in shop_items.items():
             item_frame = customtkinter.CTkFrame(master=content_frame,
                                               corner_radius=12,
-                                              fg_color=("#333333", "#2A2A2A"))
+                                              fg_color=("#333333", "#2A2A2A"),
+                                              border_width=2,
+                                              border_color=get_price_change_color(emoji))
             item_frame.pack(fill="x", padx=20, pady=10)
             
             item_info_frame = customtkinter.CTkFrame(master=item_frame, fg_color="transparent")
@@ -1362,15 +1564,39 @@ def show_shop() -> None:
                                              text_color=("#B0B0B0", "#B0B0B0"),
                                              anchor="w")
             item_desc.pack(anchor="w")
+            
+            # Price change indicator
+            price_change_percent = ((item_data["price"] - item_data["base_price"]) / item_data["base_price"]) * 100
+            trend_emoji = get_price_trend_emoji(emoji)
+            
+            price_change_text = f"{trend_emoji} {price_change_percent:+.1f}% from base price"
+            price_change_color = get_price_change_color(emoji)
+            
+            price_change_label = customtkinter.CTkLabel(master=item_details, 
+                                                      text=price_change_text, 
+                                                      font=("Arial", 11, "bold"),
+                                                      text_color=price_change_color,
+                                                      anchor="w")
+            price_change_label.pack(anchor="w")
 
             price_buy_frame = customtkinter.CTkFrame(master=item_info_frame, fg_color="transparent")
             price_buy_frame.pack(side="right")
             
-            price_label = customtkinter.CTkLabel(master=price_buy_frame, 
-                                               text=f"${item_data['price']}", 
-                                               font=("Arial", 18, "bold"),
-                                               text_color=("#00FF7F", "#00FF7F"))
-            price_label.pack(pady=(0, 5))
+            # Enhanced price display
+            price_frame = customtkinter.CTkFrame(master=price_buy_frame, fg_color="transparent")
+            price_frame.pack(pady=(0, 5))
+            
+            current_price_label = customtkinter.CTkLabel(master=price_frame, 
+                                                       text=f"${item_data['price']:,}", 
+                                                       font=("Arial", 18, "bold"),
+                                                       text_color=price_change_color)
+            current_price_label.pack()
+            
+            base_price_label = customtkinter.CTkLabel(master=price_frame, 
+                                                    text=f"(Base: ${item_data['base_price']:,})", 
+                                                    font=("Arial", 10),
+                                                    text_color=("#888888", "#888888"))
+            base_price_label.pack()
             
             buy_btn = customtkinter.CTkButton(master=price_buy_frame, text="Buy", 
                                             width=80, height=35,
@@ -1436,14 +1662,37 @@ def show_shop() -> None:
                                                      anchor="w")
                     item_desc.pack(anchor="w")
                     
+                    # Add market value information
+                    price_change_percent = ((item_data["price"] - item_data["base_price"]) / item_data["base_price"]) * 100
+                    trend_emoji = get_price_trend_emoji(emoji)
+                    market_value_text = f"{trend_emoji} Market Value: ${item_data['price']:,} ({price_change_percent:+.1f}%)"
+                    market_value_color = get_price_change_color(emoji)
+                    
+                    market_value_label = customtkinter.CTkLabel(master=item_details, 
+                                                              text=market_value_text, 
+                                                              font=("Arial", 11, "bold"),
+                                                              text_color=market_value_color,
+                                                              anchor="w")
+                    market_value_label.pack(anchor="w")
+                    
                     sell_frame = customtkinter.CTkFrame(master=item_info_frame, fg_color="transparent")
                     sell_frame.pack(side="right")
                     
-                    sell_price_label = customtkinter.CTkLabel(master=sell_frame, 
-                                                            text=f"Sell: ${sell_price}", 
+                    # Enhanced sell price display
+                    sell_price_frame = customtkinter.CTkFrame(master=sell_frame, fg_color="transparent")
+                    sell_price_frame.pack(pady=(0, 5))
+                    
+                    sell_price_label = customtkinter.CTkLabel(master=sell_price_frame, 
+                                                            text=f"Sell: ${sell_price:,}", 
                                                             font=("Arial", 16, "bold"),
                                                             text_color=("#FF6B6B", "#FF4757"))
-                    sell_price_label.pack(pady=(0, 5))
+                    sell_price_label.pack()
+                    
+                    sell_note_label = customtkinter.CTkLabel(master=sell_price_frame, 
+                                                           text="(70% of market value)", 
+                                                           font=("Arial", 9),
+                                                           text_color=("#888888", "#888888"))
+                    sell_note_label.pack()
                     
                     sell_btn = customtkinter.CTkButton(master=sell_frame, text="Sell", 
                                                      width=80, height=35,
@@ -1565,8 +1814,9 @@ def create_sidebar(buttons: Dict[str, Callable[[], None]]) -> None:
                                    fg_color=("#1E1E1E", "#0D1117"))
     sidebar.pack(side="left", fill="y")
 
+    # Casino Games Section
     casino_frame = customtkinter.CTkFrame(master=sidebar, fg_color="transparent")
-    casino_frame.pack(fill="x", padx=15, pady=15)
+    casino_frame.pack(fill="x", padx=15, pady=(15, 10))
     
     casino_button = customtkinter.CTkButton(master=casino_frame, text="🎰 Casino Games ▼", 
                                           command=lambda: toggle_casino_menu(),
@@ -1578,75 +1828,82 @@ def create_sidebar(buttons: Dict[str, Callable[[], None]]) -> None:
                                           corner_radius=15)
     casino_button.pack(fill="x")
     
+    # Compact 2-column submenu layout
     casino_submenu = customtkinter.CTkFrame(master=casino_frame, 
                                           fg_color=("#2B2B2B", "#1C1C1C"),
                                           corner_radius=12)
     
-    coinflip_btn = customtkinter.CTkButton(master=casino_submenu, 
+    # Row 1: Coin Flip + Number Guesser
+    row1_frame = customtkinter.CTkFrame(master=casino_submenu, fg_color="transparent")
+    row1_frame.pack(fill="x", padx=8, pady=6)
+    
+    coinflip_btn = customtkinter.CTkButton(master=row1_frame, 
                                          text="🪙 Coin Flip", 
                                          command=show_casino,
-                                         font=("Arial", 14, "bold"),
-                                         height=45,
+                                         font=("Arial", 12, "bold"),
+                                         height=40,
                                          fg_color="transparent",
                                          hover_color=("#4ECDC4", "#26D0CE"),
-                                         corner_radius=10,
-                                         anchor="w")
-    coinflip_btn.pack(fill="x", padx=12, pady=8)
+                                         corner_radius=8)
+    coinflip_btn.pack(side="left", fill="x", expand=True, padx=(0, 4))
     
-    number_btn = customtkinter.CTkButton(master=casino_submenu, 
-                                       text="🔢 Number Guesser", 
+    number_btn = customtkinter.CTkButton(master=row1_frame, 
+                                       text="🔢 Number", 
                                        command=show_number_guesser,
-                                       font=("Arial", 14, "bold"),
-                                       height=45,
+                                       font=("Arial", 12, "bold"),
+                                       height=40,
                                        fg_color="transparent",
                                        hover_color=("#9B59B6", "#8E44AD"),
-                                       corner_radius=10,
-                                       anchor="w")
-    number_btn.pack(fill="x", padx=12, pady=8)
+                                       corner_radius=8)
+    number_btn.pack(side="right", fill="x", expand=True, padx=(4, 0))
     
-    roulette_btn = customtkinter.CTkButton(master=casino_submenu, 
+    # Row 2: Roulette + Blackjack
+    row2_frame = customtkinter.CTkFrame(master=casino_submenu, fg_color="transparent")
+    row2_frame.pack(fill="x", padx=8, pady=6)
+    
+    roulette_btn = customtkinter.CTkButton(master=row2_frame, 
                                          text="🎯 Roulette", 
                                          command=show_roulette,
-                                         font=("Arial", 14, "bold"),
-                                         height=45,
+                                         font=("Arial", 12, "bold"),
+                                         height=40,
                                          fg_color="transparent",
                                          hover_color=("#E74C3C", "#C0392B"),
-                                         corner_radius=10,
-                                         anchor="w")
-    roulette_btn.pack(fill="x", padx=12, pady=8)
+                                         corner_radius=8)
+    roulette_btn.pack(side="left", fill="x", expand=True, padx=(0, 4))
     
-    blackjack_btn = customtkinter.CTkButton(master=casino_submenu, 
+    blackjack_btn = customtkinter.CTkButton(master=row2_frame, 
                                           text="🃏 Blackjack", 
                                           command=show_blackjack,
-                                          font=("Arial", 14, "bold"),
-                                          height=45,
+                                          font=("Arial", 12, "bold"),
+                                          height=40,
                                           fg_color="transparent",
                                           hover_color=("#2ECC71", "#27AE60"),
-                                          corner_radius=10,
-                                          anchor="w")
-    blackjack_btn.pack(fill="x", padx=12, pady=8)
+                                          corner_radius=8)
+    blackjack_btn.pack(side="right", fill="x", expand=True, padx=(4, 0))
     
-    dice_btn = customtkinter.CTkButton(master=casino_submenu, 
+    # Row 3: Dice Roll + Slot Machine
+    row3_frame = customtkinter.CTkFrame(master=casino_submenu, fg_color="transparent")
+    row3_frame.pack(fill="x", padx=8, pady=(6, 8))
+    
+    dice_btn = customtkinter.CTkButton(master=row3_frame, 
                                      text="🎲 Dice Roll", 
                                      command=show_dice_roll,
-                                     font=("Arial", 14, "bold"),
-                                     height=45,
+                                     font=("Arial", 12, "bold"),
+                                     height=40,
                                      fg_color="transparent",
                                      hover_color=("#3498DB", "#2980B9"),
-                                     corner_radius=10,
-                                     anchor="w")
-    dice_btn.pack(fill="x", padx=12, pady=8)
+                                     corner_radius=8)
+    dice_btn.pack(side="left", fill="x", expand=True, padx=(0, 4))
     
-    slot_btn = customtkinter.CTkButton(master=casino_submenu, 
-                                     text="🎰 Slot Machine", 
+    slot_btn = customtkinter.CTkButton(master=row3_frame, 
+                                     text="🎰 Slots", 
                                      command=show_slot_machine,
-                                     font=("Arial", 14, "bold"),
-                                     height=45,
+                                     font=("Arial", 12, "bold"),
+                                     height=40,
                                      fg_color="transparent",
                                      hover_color=("#F39C12", "#E67E22"),
-                                     corner_radius=10,
-                                     anchor="w")
-    slot_btn.pack(fill="x", padx=12, pady=8)
+                                     corner_radius=8)
+    slot_btn.pack(side="right", fill="x", expand=True, padx=(4, 0))
     
     def toggle_casino_menu():
         global sidebar_expanded
@@ -1655,16 +1912,18 @@ def create_sidebar(buttons: Dict[str, Callable[[], None]]) -> None:
             casino_button.configure(text="🎰 Casino Games ▼")
             sidebar_expanded = False
         else:
-            casino_submenu.pack(fill="x", pady=(12, 0))
+            casino_submenu.pack(fill="x", pady=(8, 0))
             casino_button.configure(text="🎰 Casino Games ▲")
             sidebar_expanded = True
     
+    # Compact separator
     separator_line = customtkinter.CTkFrame(master=sidebar, 
-                                          height=3, 
+                                          height=2, 
                                           fg_color=("#FFD700", "#FFA500"),
-                                          corner_radius=2)
-    separator_line.pack(fill="x", padx=30, pady=20)
+                                          corner_radius=1)
+    separator_line.pack(fill="x", padx=30, pady=(15, 10))
     
+    # Main navigation buttons with reduced spacing
     for button in buttons:
         if button == "Bank":
             icon = "🏦"
@@ -1685,7 +1944,7 @@ def create_sidebar(buttons: Dict[str, Callable[[], None]]) -> None:
                                     fg_color=("#333333", "#2A2A2A"),
                                     hover_color=("#555555", "#404040"),
                                     corner_radius=15)
-        btn.pack(pady=12, padx=15, fill="x")
+        btn.pack(pady=8, padx=15, fill="x")
 
     separator = customtkinter.CTkFrame(master=app, 
                                      width=3, 
@@ -2031,23 +2290,44 @@ def show_bank() -> None:
     # Transaction Frequency Chart
     freq_frame = customtkinter.CTkFrame(master=analytics_tab,
                                       corner_radius=15,
-                                      fg_color=("#1A1A1A", "#0F0F0F"))
+                                      fg_color=("#1A1A1A", "#0F0F0F"),
+                                      border_width=2,
+                                      border_color=("#3498DB", "#2980B9"))
     freq_frame.pack(fill="x", pady=(0, 15), padx=20)
     
     freq_title = customtkinter.CTkLabel(master=freq_frame,
-                                      text="📊 Transaction Activity",
-                                      font=("Arial", 16, "bold"))
-    freq_title.pack(pady=(15, 10))
+                                      text="📊 Recent Transaction Activity",
+                                      font=("Arial", 18, "bold"),
+                                      text_color=("#3498DB", "#2980B9"))
+    freq_title.pack(pady=(15, 5))
+    
+    # Detailed description
+    description_label = customtkinter.CTkLabel(master=freq_frame,
+                                             text="📈 Visual overview of your last 10 transactions\n" +
+                                                  "🟢 Green bars = Money earned (winnings, loans)\n" +
+                                                  "🔴 Red bars = Money spent (bets, payments)\n" +
+                                                  "📏 Bar length shows relative transaction amounts",
+                                             font=("Arial", 12),
+                                             text_color=("#CCCCCC", "#CCCCCC"),
+                                             justify="left")
+    description_label.pack(pady=(0, 15))
     
     # Create visual transaction frequency bars
     if transaction_history:
         recent_transactions = transaction_history[-10:]
-        create_transaction_visual_chart(freq_frame, recent_transactions)
+        create_enhanced_transaction_chart(freq_frame, recent_transactions)
     else:
-        no_data_label = customtkinter.CTkLabel(master=freq_frame,
-                                             text="🔍 No transaction data available\nStart playing games to see analytics!",
+        no_data_frame = customtkinter.CTkFrame(master=freq_frame, 
+                                             fg_color=("#2C3E50", "#34495E"),
+                                             corner_radius=10)
+        no_data_frame.pack(fill="x", padx=20, pady=(0, 20))
+        
+        no_data_label = customtkinter.CTkLabel(master=no_data_frame,
+                                             text="🔍 No transaction data available yet\n" +
+                                                  "💡 Start playing games to see your activity here!\n" +
+                                                  "🎮 Every bet, win, and transaction will appear in this chart",
                                              font=("Arial", 14),
-                                             text_color=("#888888", "#888888"))
+                                             text_color=("#95A5A6", "#7F8C8D"))
         no_data_label.pack(pady=30)
     
     # Spending Categories
@@ -2213,26 +2493,66 @@ def show_bank() -> None:
         # Refresh the bank display completely  
         show_bank()
     
+    def pay_full_loan():
+        global balance, loan_info, current_balance_label
+        
+        if loan_info["amount"] <= 0:
+            loan_result_label.configure(text="❌ No active loan to pay!", 
+                                      text_color=("#FF6B6B", "#FF4757"))
+            return
+        
+        full_payment = loan_info["amount"]
+        
+        if balance < full_payment:
+            loan_result_label.configure(text=f"❌ Insufficient funds! Need ${full_payment:,} to pay off loan", 
+                                      text_color=("#FF6B6B", "#FF4757"))
+            return
+        
+        balance -= full_payment
+        
+        if current_balance_label:
+            current_balance_label.configure(text=f"💰 Account Balance: ${balance}")
+
+        add_transaction("expense", full_payment, "Full Loan Payment")
+        
+        # Reset loan info completely
+        loan_info = {"amount": 0, "interest_rate": 0.0, "monthly_payment": 0, "remaining_payments": 0}
+        loan_result_label.configure(text="🎉 Loan fully paid off! Congratulations!", 
+                                  text_color=("#00FF7F", "#00FF7F"))
+        
+        # Refresh the bank display completely  
+        show_bank()
+    
     
     take_loan_btn = customtkinter.CTkButton(master=buttons_frame,
                                           text="💳 Take Loan",
                                           command=take_loan,
-                                          width=120, height=40,
-                                          font=("Arial", 14, "bold"),
+                                          width=110, height=40,
+                                          font=("Arial", 13, "bold"),
                                           corner_radius=10,
                                           fg_color=("#E74C3C", "#C0392B"),
                                           hover_color=("#CB4335", "#A93226"))
-    take_loan_btn.pack(side="left", padx=(0, 10))
+    take_loan_btn.pack(side="left", padx=(0, 8))
     
     pay_loan_btn = customtkinter.CTkButton(master=buttons_frame,
                                          text="💰 Pay Monthly",
                                          command=pay_loan,
-                                         width=120, height=40,
-                                         font=("Arial", 14, "bold"),
+                                         width=110, height=40,
+                                         font=("Arial", 13, "bold"),
                                          corner_radius=10,
                                          fg_color=("#27AE60", "#229954"),
                                          hover_color=("#2ECC71", "#27AE60"))
-    pay_loan_btn.pack(side="left")
+    pay_loan_btn.pack(side="left", padx=(0, 8))
+    
+    pay_full_loan_btn = customtkinter.CTkButton(master=buttons_frame,
+                                              text="💸 Pay Full",
+                                              command=pay_full_loan,
+                                              width=110, height=40,
+                                              font=("Arial", 13, "bold"),
+                                              corner_radius=10,
+                                              fg_color=("#8E44AD", "#7D3C98"),
+                                              hover_color=("#9B59B6", "#8E44AD"))
+    pay_full_loan_btn.pack(side="left")
     
     # =================== HISTORY TAB ===================
     
@@ -2255,30 +2575,43 @@ def show_bank() -> None:
         net_profit = total_income - total_expenses
         debt_amount = loan_info["amount"] if loan_info["amount"] > 0 else 0
         
-        # Update all displays
-        current_balance_stat.configure(text=f"${balance:,}")
-        current_balance_label.configure(text=f"💰 Account Balance: ${balance:,}")
-        total_income_stat.configure(text=f"${total_income:,}")
-        total_expenses_stat.configure(text=f"${total_expenses:,}")
-        net_profit_stat.configure(text=f"${net_profit:,}")
+        # Update all displays - wrap in try/except to handle destroyed widgets
+        try:
+            current_balance_stat.configure(text=f"${balance:,}")
+            current_balance_label.configure(text=f"💰 Account Balance: ${balance:,}")
+            total_income_stat.configure(text=f"${total_income:,}")
+            total_expenses_stat.configure(text=f"${total_expenses:,}")
+            net_profit_stat.configure(text=f"${net_profit:,}")
+        except:
+            pass  # Bank UI elements don't exist or have been destroyed
         
         # Update progress bars
-        health_score = calculate_financial_health(balance, net_profit, debt_amount)
-        health_progress.configure(progress_color=get_health_color(health_score))
-        health_progress.set(health_score / 100)
-        health_value.configure(text=f"{health_score:.0f}/100 - {get_health_status(health_score)}",
-                              text_color=get_health_color(health_score))
+        try:
+            health_score = calculate_financial_health(balance, net_profit, debt_amount)
+            health_progress.configure(progress_color=get_health_color(health_score))
+            health_progress.set(health_score / 100)
+            health_value.configure(text=f"{health_score:.0f}/100 - {get_health_status(health_score)}",
+                                  text_color=get_health_color(health_score))
+        except:
+            pass  # Health UI elements don't exist
         
-        max_amount = max(total_income, total_expenses, 1)
-        income_bar.set(total_income / max_amount if max_amount > 0 else 0)
-        expenses_bar.set(total_expenses / max_amount if max_amount > 0 else 0)
-        income_value.configure(text=f"${total_income:,}")
-        expenses_value.configure(text=f"${total_expenses:,}")
+        # Update comparison bars
+        try:
+            max_amount = max(total_income, total_expenses, 1)
+            income_bar.set(total_income / max_amount if max_amount > 0 else 0)
+            expenses_bar.set(total_expenses / max_amount if max_amount > 0 else 0)
+            income_value.configure(text=f"${total_income:,}")
+            expenses_value.configure(text=f"${total_expenses:,}")
+        except:
+            pass  # Comparison UI elements don't exist
         
         # Update card colors
-        profit_color = ("#2ECC71", "#27AE60") if net_profit >= 0 else ("#E74C3C", "#C0392B")
-        profit_card.configure(fg_color=profit_color)
-        profit_icon.configure(text="💹" if net_profit >= 0 else "💔")
+        try:
+            profit_color = ("#2ECC71", "#27AE60") if net_profit >= 0 else ("#E74C3C", "#C0392B")
+            profit_card.configure(fg_color=profit_color)
+            profit_icon.configure(text="💹" if net_profit >= 0 else "💔")
+        except:
+            pass  # Card UI elements don't exist
     
     # Add refresh button
     refresh_frame = customtkinter.CTkFrame(master=overview_tab, fg_color="transparent")
@@ -2348,55 +2681,134 @@ def get_health_emoji(score):
     else:
         return "🔴"
 
-def create_transaction_visual_chart(parent, transactions):
-    """Create visual chart for transactions with better alignment"""
-    chart_frame = customtkinter.CTkFrame(master=parent, fg_color="transparent")
-    chart_frame.pack(fill="x", padx=20, pady=(0, 15))
+def create_enhanced_transaction_chart(parent, transactions):
+    """Create enhanced visual chart for recent transactions with detailed information"""
     
+    # Main chart container with enhanced styling
+    chart_container = customtkinter.CTkFrame(master=parent, 
+                                           fg_color=("#2C3E50", "#34495E"),
+                                           corner_radius=12,
+                                           border_width=1,
+                                           border_color=("#3498DB", "#2980B9"))
+    chart_container.pack(fill="x", padx=20, pady=(0, 20))
+    
+    # Chart header with summary stats
+    header_frame = customtkinter.CTkFrame(master=chart_container, fg_color="transparent")
+    header_frame.pack(fill="x", padx=15, pady=(15, 10))
+    
+    total_in = sum(t["amount"] for t in transactions if t["type"] == "income")
+    total_out = sum(t["amount"] for t in transactions if t["type"] == "expense")
+    net_change = total_in - total_out
+    
+    stats_text = f"💰 Last {len(transactions)} transactions: +${total_in} in, -${total_out} out, Net: "
+    net_text = f"{'📈' if net_change >= 0 else '📉'} ${abs(net_change):,}"
+    net_color = ("#2ECC71", "#27AE60") if net_change >= 0 else ("#E74C3C", "#C0392B")
+    
+    stats_label = customtkinter.CTkLabel(master=header_frame,
+                                       text=stats_text,
+                                       font=("Arial", 12, "bold"),
+                                       text_color=("#FFFFFF", "#FFFFFF"))
+    stats_label.pack(side="left")
+    
+    net_label = customtkinter.CTkLabel(master=header_frame,
+                                     text=net_text,
+                                     font=("Arial", 12, "bold"),
+                                     text_color=net_color)
+    net_label.pack(side="left")
+    
+    # Transactions list with enhanced display
     if not transactions:
         return
     
     max_amount = max(abs(t["amount"]) for t in transactions)
     
-    for i, transaction in enumerate(transactions[-8:]):  # Show last 8
-        row = customtkinter.CTkFrame(master=chart_frame, fg_color="transparent")
-        row.pack(fill="x", pady=2)
+    # Scrollable frame for transactions
+    trans_scroll = customtkinter.CTkScrollableFrame(master=chart_container,
+                                                  height=200,
+                                                  fg_color="transparent")
+    trans_scroll.pack(fill="both", expand=True, padx=10, pady=(0, 15))
+    
+    for i, transaction in enumerate(reversed(transactions)):  # Most recent first
+        row_frame = customtkinter.CTkFrame(master=trans_scroll, 
+                                         fg_color=("#34495E", "#2C3E50"),
+                                         corner_radius=8,
+                                         border_width=1,
+                                         border_color=("#555555", "#444444"))
+        row_frame.pack(fill="x", pady=2, padx=5)
         
-        # Create left side with emoji and description
-        left_side = customtkinter.CTkFrame(master=row, fg_color="transparent")
-        left_side.pack(side="left", padx=(0, 15))
+        # Transaction row content
+        content_frame = customtkinter.CTkFrame(master=row_frame, fg_color="transparent")
+        content_frame.pack(fill="x", padx=10, pady=8)
         
-        # Transaction type emoji
-        emoji = "🟢" if transaction["type"] == "income" else "🔴"
-        emoji_label = customtkinter.CTkLabel(master=left_side,
-                                           text=emoji,
-                                           font=("Arial", 14))
-        emoji_label.pack(side="left", padx=(0, 8))
+        # Left side: Type indicator and description
+        left_frame = customtkinter.CTkFrame(master=content_frame, fg_color="transparent")
+        left_frame.pack(side="left", fill="x", expand=True)
         
-        # Transaction info
-        info_label = customtkinter.CTkLabel(master=left_side,
-                                          text=f"{transaction['description'][:15]}",
-                                          font=("Arial", 12),
-                                          width=120)
-        info_label.pack(side="left")
+        # Transaction type with enhanced emoji
+        type_emoji = "�" if transaction["type"] == "income" else "�"
+        type_color = ("#2ECC71", "#27AE60") if transaction["type"] == "income" else ("#E74C3C", "#C0392B")
         
-        # Visual bar
-        bar_length = transaction["amount"] / max_amount if max_amount > 0 else 0
-        bar_color = ("#2ECC71", "#27AE60") if transaction["type"] == "income" else ("#E74C3C", "#C0392B")
+        type_label = customtkinter.CTkLabel(master=left_frame,
+                                          text=type_emoji,
+                                          font=("Arial", 16),
+                                          text_color=type_color)
+        type_label.pack(side="left", padx=(0, 8))
         
-        bar = customtkinter.CTkProgressBar(master=row,
-                                         width=200, height=15,
-                                         progress_color=bar_color,
-                                         fg_color=("#555555", "#444444"))
-        bar.pack(side="left", padx=(0, 15))
-        bar.set(bar_length)
+        # Description with category detection
+        description = transaction['description']
+        if len(description) > 20:
+            description = description[:17] + "..."
+            
+        desc_label = customtkinter.CTkLabel(master=left_frame,
+                                          text=description,
+                                          font=("Arial", 11, "bold"),
+                                          text_color=("#FFFFFF", "#FFFFFF"),
+                                          width=150,
+                                          anchor="w")
+        desc_label.pack(side="left", padx=(0, 10))
         
-        # Amount
-        amount_label = customtkinter.CTkLabel(master=row,
-                                            text=f"${transaction['amount']}",
-                                            font=("Arial", 12, "bold"),
-                                            text_color=bar_color)
-        amount_label.pack(side="left")
+        # Timestamp (if available)
+        if "timestamp" in transaction:
+            time_text = transaction["timestamp"].split(" ")[1]  # Just the time part
+            time_label = customtkinter.CTkLabel(master=left_frame,
+                                              text=f"🕐 {time_text}",
+                                              font=("Arial", 9),
+                                              text_color=("#95A5A6", "#7F8C8D"))
+            time_label.pack(side="left")
+        
+        # Right side: Visual bar and amount
+        right_frame = customtkinter.CTkFrame(master=content_frame, fg_color="transparent")
+        right_frame.pack(side="right")
+        
+        # Visual progress bar showing relative amount
+        bar_width = int((transaction["amount"] / max_amount) * 120) if max_amount > 0 else 5
+        bar_width = max(bar_width, 10)  # Minimum width for visibility
+        
+        bar = customtkinter.CTkProgressBar(master=right_frame,
+                                         width=bar_width, height=12,
+                                         progress_color=type_color,
+                                         fg_color=("#555555", "#444444"),
+                                         corner_radius=6)
+        bar.pack(side="left", padx=(0, 10))
+        bar.set(1.0)  # Always full since width represents the amount
+        
+        # Amount with proper formatting
+        amount_text = f"${transaction['amount']:,}"
+        if transaction["type"] == "income":
+            amount_text = f"+{amount_text}"
+        else:
+            amount_text = f"-{amount_text}"
+            
+        amount_label = customtkinter.CTkLabel(master=right_frame,
+                                            text=amount_text,
+                                            font=("Arial", 11, "bold"),
+                                            text_color=type_color,
+                                            width=80)
+        amount_label.pack(side="right")
+
+def create_transaction_visual_chart(parent, transactions):
+    """Legacy function - kept for compatibility, redirects to enhanced version"""
+    create_enhanced_transaction_chart(parent, transactions)
 
 def create_spending_category_chart(parent, transactions):
     """Create spending category visualization"""
@@ -2603,14 +3015,17 @@ def create_transaction_history_display(parent, transactions):
 
 # Global update function for live bank updates
 def update_bank_display():
-    """Update bank display when called from other parts of the app"""
-    # This will refresh the entire bank display when called
-    # It's simpler to just call show_bank() to refresh everything
-    try:
-        show_bank()
-    except:
-        # If there's any error, just pass silently
-        pass
+    """Update bank data without switching tabs"""
+    global balance, transaction_history, loan_info
+    
+    # Only update the current balance label if it exists and we're not in the bank
+    if current_balance_label:
+        try:
+            current_balance_label.configure(text=f"💰 Balance: ${balance}")
+        except:
+            pass  # UI element destroyed
+    
+    # No tab switching - just update data silently
 
 
 buttons: Dict[str, Callable[[], None]] = {"Bank": show_bank, "Shop": show_shop, "Settings": show_settings, "Reload": reload}
