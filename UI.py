@@ -1340,7 +1340,6 @@ def show_shop() -> None:
             item_info_frame = customtkinter.CTkFrame(master=item_frame, fg_color="transparent")
             item_info_frame.pack(fill="x", padx=20, pady=15)
             
-            # Item icon and name
             icon_name_frame = customtkinter.CTkFrame(master=item_info_frame, fg_color="transparent")
             icon_name_frame.pack(side="left", fill="x", expand=True)
             
@@ -1363,8 +1362,7 @@ def show_shop() -> None:
                                              text_color=("#B0B0B0", "#B0B0B0"),
                                              anchor="w")
             item_desc.pack(anchor="w")
-            
-            # Price and buy button
+
             price_buy_frame = customtkinter.CTkFrame(master=item_info_frame, fg_color="transparent")
             price_buy_frame.pack(side="right")
             
@@ -1383,14 +1381,12 @@ def show_shop() -> None:
             buy_btn.pack()
     
     def switch_to_inventory_tab():
-        # Clear content frame
         for widget in content_frame.winfo_children():
             widget.destroy()
         
         shop_tab_btn.configure(fg_color=("#555555", "#404040"))
         inventory_tab_btn.configure(fg_color=("#9B59B6", "#8E44AD"))
         
-        # Inventory header
         inv_header = customtkinter.CTkLabel(master=content_frame, 
                                           text="🎒 Your Inventory", 
                                           font=("Arial", 24, "bold"),
@@ -1404,11 +1400,10 @@ def show_shop() -> None:
                                                text_color=("#B0B0B0", "#B0B0B0"))
             empty_label.pack(pady=50)
         else:
-            # Create inventory items
             for emoji, quantity in inventory.items():
                 if quantity > 0:
                     item_data = shop_items[emoji]
-                    sell_price = int(item_data["price"] * 0.7)  # Sell for 70% of buy price
+                    sell_price = int(item_data["price"] * 0.7)
                     
                     item_frame = customtkinter.CTkFrame(master=content_frame,
                                                       corner_radius=12,
@@ -1418,7 +1413,6 @@ def show_shop() -> None:
                     item_info_frame = customtkinter.CTkFrame(master=item_frame, fg_color="transparent")
                     item_info_frame.pack(fill="x", padx=20, pady=15)
                     
-                    # Item icon and name
                     icon_name_frame = customtkinter.CTkFrame(master=item_info_frame, fg_color="transparent")
                     icon_name_frame.pack(side="left", fill="x", expand=True)
                     
@@ -1442,7 +1436,6 @@ def show_shop() -> None:
                                                      anchor="w")
                     item_desc.pack(anchor="w")
                     
-                    # Sell price and button
                     sell_frame = customtkinter.CTkFrame(master=item_info_frame, fg_color="transparent")
                     sell_frame.pack(side="right")
                     
@@ -1471,13 +1464,11 @@ def show_shop() -> None:
                 update_bank_display()
             current_balance_label.configure(text=f"Balance: ${balance}")
             
-            # Add to inventory
             if emoji in inventory:
                 inventory[emoji] += 1
             else:
                 inventory[emoji] = 1
             
-            # Show success message
             success_window = customtkinter.CTkToplevel(app)
             success_window.title("Purchase Successful")
             success_window.geometry("400x200")
@@ -1496,7 +1487,6 @@ def show_shop() -> None:
             ok_btn.pack(pady=20)
             
         else:
-            # Show insufficient funds message
             error_window = customtkinter.CTkToplevel(app)
             error_window.title("Insufficient Funds")
             error_window.geometry("400x200")
@@ -1526,7 +1516,6 @@ def show_shop() -> None:
             current_balance_label.configure(text=f"Balance: ${balance}")
             inventory[emoji] -= 1
             
-            # Show success message
             success_window = customtkinter.CTkToplevel(app)
             success_window.title("Sale Successful")
             success_window.geometry("400x200")
@@ -1545,7 +1534,7 @@ def show_shop() -> None:
                                            command=lambda: [success_window.destroy(), switch_to_inventory_tab()])
             ok_btn.pack(pady=20)
     
-    # Start with shop tab
+
     switch_to_shop_tab()
 
 def show_settings() -> None:
@@ -1775,15 +1764,15 @@ def show_bank() -> None:
                                         width=200, height=140)
     balance_card.pack(side="left", fill="x", expand=True, padx=(0, 15))
     
-    # Icon and title row
+    # Icon and title row with proper alignment
     balance_header = customtkinter.CTkFrame(master=balance_card, fg_color="transparent")
     balance_header.pack(fill="x", padx=20, pady=(20, 5))
     
     balance_icon = customtkinter.CTkLabel(master=balance_header,
                                         text="💰",
-                                        font=("Arial", 32),
+                                        font=("Arial", 28),
                                         text_color=("white", "white"))
-    balance_icon.pack(side="left")
+    balance_icon.pack(side="left", anchor="w")
     
     balance_title = customtkinter.CTkLabel(master=balance_header,
                                          text="Balance",
@@ -1806,15 +1795,15 @@ def show_bank() -> None:
                                        width=200, height=140)
     income_card.pack(side="left", fill="x", expand=True, padx=(0, 15))
     
-    # Icon and title row
+    # Icon and title row with proper alignment
     income_header = customtkinter.CTkFrame(master=income_card, fg_color="transparent")
     income_header.pack(fill="x", padx=20, pady=(20, 5))
     
     income_icon = customtkinter.CTkLabel(master=income_header,
                                        text="📈",
-                                       font=("Arial", 32),
+                                       font=("Arial", 28),
                                        text_color=("white", "white"))
-    income_icon.pack(side="left")
+    income_icon.pack(side="left", anchor="w")
     
     income_title = customtkinter.CTkLabel(master=income_header,
                                         text="Income",
@@ -1837,15 +1826,15 @@ def show_bank() -> None:
                                          width=200, height=140)
     expenses_card.pack(side="left", fill="x", expand=True, padx=(0, 15))
     
-    # Icon and title row
+    # Icon and title row with proper alignment
     expenses_header = customtkinter.CTkFrame(master=expenses_card, fg_color="transparent")
     expenses_header.pack(fill="x", padx=20, pady=(20, 5))
     
     expenses_icon = customtkinter.CTkLabel(master=expenses_header,
                                          text="📉",
-                                         font=("Arial", 32),
+                                         font=("Arial", 28),
                                          text_color=("white", "white"))
-    expenses_icon.pack(side="left")
+    expenses_icon.pack(side="left", anchor="w")
     
     expenses_title = customtkinter.CTkLabel(master=expenses_header,
                                           text="Expenses",
@@ -1870,15 +1859,15 @@ def show_bank() -> None:
                                        width=200, height=140)
     profit_card.pack(side="left", fill="x", expand=True)
     
-    # Icon and title row
+    # Icon and title row with proper alignment
     profit_header = customtkinter.CTkFrame(master=profit_card, fg_color="transparent")
     profit_header.pack(fill="x", padx=20, pady=(20, 5))
     
     profit_icon = customtkinter.CTkLabel(master=profit_header,
                                        text="💹" if net_profit >= 0 else "💔",
-                                       font=("Arial", 32),
+                                       font=("Arial", 28),
                                        text_color=("white", "white"))
-    profit_icon.pack(side="left")
+    profit_icon.pack(side="left", anchor="w")
     
     profit_title = customtkinter.CTkLabel(master=profit_header,
                                         text="Net Profit",
@@ -1941,57 +1930,95 @@ def show_bank() -> None:
                                         text_color=get_health_color(health_score))
     health_value.pack(pady=(0, 20))
     
-    # Income vs Expenses Visual Comparison
-    comparison_frame = customtkinter.CTkFrame(master=chart_container, fg_color="transparent")
+    # Modern Income vs Expenses Visual Comparison
+    comparison_frame = customtkinter.CTkFrame(master=chart_container, 
+                                            corner_radius=15,
+                                            fg_color=("#2C3E50", "#34495E"),
+                                            border_width=2,
+                                            border_color=("#95A5A6", "#7F8C8D"))
     comparison_frame.pack(fill="x", pady=10)
+    
+    comparison_title = customtkinter.CTkLabel(master=comparison_frame,
+                                            text="💰 Income vs Expenses Analysis",
+                                            font=("Arial", 18, "bold"),
+                                            text_color=("#FFFFFF", "#FFFFFF"))
+    comparison_title.pack(pady=(20, 15))
     
     max_amount = max(total_income, total_expenses, 1)
     
-    # Income bar
+    # Modern Income bar with better alignment
     income_row = customtkinter.CTkFrame(master=comparison_frame, fg_color="transparent")
-    income_row.pack(fill="x", pady=(0, 10))
+    income_row.pack(fill="x", padx=25, pady=(0, 15))
     
-    income_bar_label = customtkinter.CTkLabel(master=income_row,
-                                            text="💚 Income:",
-                                            font=("Arial", 14, "bold"),
-                                            width=100)
-    income_bar_label.pack(side="left", padx=(0, 10))
+    income_info = customtkinter.CTkFrame(master=income_row, fg_color="transparent")
+    income_info.pack(fill="x", pady=(0, 8))
+    
+    # Create a horizontal layout for emoji and text
+    income_left = customtkinter.CTkFrame(master=income_info, fg_color="transparent")
+    income_left.pack(side="left", anchor="w")
+    
+    income_emoji = customtkinter.CTkLabel(master=income_left,
+                                        text="💚",
+                                        font=("Arial", 18),
+                                        text_color=("#2ECC71", "#27AE60"))
+    income_emoji.pack(side="left", padx=(0, 8), anchor="w")
+    
+    income_bar_label = customtkinter.CTkLabel(master=income_left,
+                                            text="Total Income",
+                                            font=("Arial", 16, "bold"),
+                                            text_color=("#2ECC71", "#27AE60"))
+    income_bar_label.pack(side="left", anchor="w")
+    
+    income_value = customtkinter.CTkLabel(master=income_info,
+                                        text=f"${total_income:,}",
+                                        font=("Arial", 16, "bold"),
+                                        text_color=("#2ECC71", "#27AE60"))
+    income_value.pack(side="right", anchor="e")
     
     income_bar = customtkinter.CTkProgressBar(master=income_row,
-                                            width=300, height=20,
+                                            width=400, height=25,
                                             progress_color=("#2ECC71", "#27AE60"),
-                                            fg_color=("#555555", "#444444"))
-    income_bar.pack(side="left", padx=(0, 10))
+                                            fg_color=("#555555", "#444444"),
+                                            corner_radius=12)
+    income_bar.pack(fill="x")
     income_bar.set(total_income / max_amount if max_amount > 0 else 0)
     
-    income_value = customtkinter.CTkLabel(master=income_row,
-                                        text=f"${total_income:,}",
-                                        font=("Arial", 14, "bold"),
-                                        text_color=("#2ECC71", "#27AE60"))
-    income_value.pack(side="left")
-    
-    # Expenses bar
+    # Modern Expenses bar with better alignment
     expenses_row = customtkinter.CTkFrame(master=comparison_frame, fg_color="transparent")
-    expenses_row.pack(fill="x")
+    expenses_row.pack(fill="x", padx=25, pady=(0, 20))
     
-    expenses_bar_label = customtkinter.CTkLabel(master=expenses_row,
-                                              text="🔴 Expenses:",
-                                              font=("Arial", 14, "bold"),
-                                              width=100)
-    expenses_bar_label.pack(side="left", padx=(0, 10))
+    expenses_info = customtkinter.CTkFrame(master=expenses_row, fg_color="transparent")
+    expenses_info.pack(fill="x", pady=(0, 8))
+    
+    # Create a horizontal layout for emoji and text
+    expenses_left = customtkinter.CTkFrame(master=expenses_info, fg_color="transparent")
+    expenses_left.pack(side="left", anchor="w")
+    
+    expenses_emoji = customtkinter.CTkLabel(master=expenses_left,
+                                          text="🔴",
+                                          font=("Arial", 18),
+                                          text_color=("#E74C3C", "#C0392B"))
+    expenses_emoji.pack(side="left", padx=(0, 8), anchor="w")
+    
+    expenses_bar_label = customtkinter.CTkLabel(master=expenses_left,
+                                              text="Total Expenses",
+                                              font=("Arial", 16, "bold"),
+                                              text_color=("#E74C3C", "#C0392B"))
+    expenses_bar_label.pack(side="left", anchor="w")
+    
+    expenses_value = customtkinter.CTkLabel(master=expenses_info,
+                                          text=f"${total_expenses:,}",
+                                          font=("Arial", 16, "bold"),
+                                          text_color=("#E74C3C", "#C0392B"))
+    expenses_value.pack(side="right", anchor="e")
     
     expenses_bar = customtkinter.CTkProgressBar(master=expenses_row,
-                                              width=300, height=20,
+                                              width=400, height=25,
                                               progress_color=("#E74C3C", "#C0392B"),
-                                              fg_color=("#555555", "#444444"))
-    expenses_bar.pack(side="left", padx=(0, 10))
+                                              fg_color=("#555555", "#444444"),
+                                              corner_radius=12)
+    expenses_bar.pack(fill="x")
     expenses_bar.set(total_expenses / max_amount if max_amount > 0 else 0)
-    
-    expenses_value = customtkinter.CTkLabel(master=expenses_row,
-                                          text=f"${total_expenses:,}",
-                                          font=("Arial", 14, "bold"),
-                                          text_color=("#E74C3C", "#C0392B"))
-    expenses_value.pack(side="left")
     
     # =================== ANALYTICS TAB ===================
     
@@ -2038,44 +2065,66 @@ def show_bank() -> None:
     
     # =================== LOANS TAB ===================
     
-    # Existing loan functionality but with better visual design
-    loan_title = customtkinter.CTkLabel(master=loans_tab,
-                                      text="💳 Loan Management Center",
-                                      font=("Arial", 20, "bold"),
-                                      text_color=("#FF6B6B", "#FF4757"))
-    loan_title.pack(pady=(20, 15))
+    # Scrollable container for the entire loans tab
+    loans_scroll_frame = customtkinter.CTkScrollableFrame(master=loans_tab,
+                                                        corner_radius=15,
+                                                        fg_color="transparent")
+    loans_scroll_frame.pack(fill="both", expand=True, padx=10, pady=10)
     
-    # Loan Status Card
-    loan_status_card = customtkinter.CTkFrame(master=loans_tab,
+    # Title - centered
+    loan_title = customtkinter.CTkLabel(master=loans_scroll_frame,
+                                      text="💳 Loan Management Center",
+                                      font=("Arial", 22, "bold"),
+                                      text_color=("#FF6B6B", "#FF4757"))
+    loan_title.pack(pady=(10, 20))
+    
+    # Loan Status Card - compact design
+    loan_status_card = customtkinter.CTkFrame(master=loans_scroll_frame,
                                             corner_radius=15,
-                                            fg_color=("#1A1A1A", "#0F0F0F"))
-    loan_status_card.pack(fill="x", pady=(0, 20), padx=20)
+                                            fg_color=("#1A1A1A", "#0F0F0F"),
+                                            border_width=2,
+                                            border_color=("#FF6B6B", "#FF4757"))
+    loan_status_card.pack(pady=(0, 15), padx=20, fill="x")
     
     if loan_info["amount"] > 0:
         create_active_loan_display(loan_status_card, loan_info)
     else:
         create_no_loan_display(loan_status_card)
     
-    # Loan Controls
-    loan_controls_frame = customtkinter.CTkFrame(master=loans_tab,
+    # Loan Controls - compact card
+    loan_controls_frame = customtkinter.CTkFrame(master=loans_scroll_frame,
                                                corner_radius=15,
-                                               fg_color=("#1A1A1A", "#0F0F0F"))
-    loan_controls_frame.pack(fill="x", padx=20)
+                                               fg_color=("#1A1A1A", "#0F0F0F"),
+                                               border_width=2,
+                                               border_color=("#3498DB", "#2980B9"))
+    loan_controls_frame.pack(pady=(0, 15), padx=20, fill="x")
     
     controls_title = customtkinter.CTkLabel(master=loan_controls_frame,
                                           text="💰 Loan Operations",
-                                          font=("Arial", 16, "bold"))
+                                          font=("Arial", 16, "bold"),
+                                          text_color=("#3498DB", "#2980B9"))
     controls_title.pack(pady=(15, 10))
     
-    # Loan input and buttons
-    loan_input_frame = customtkinter.CTkFrame(master=loan_controls_frame, fg_color="transparent")
-    loan_input_frame.pack(fill="x", padx=20, pady=(0, 15))
+    # Compact input field
+    loan_amount_entry = customtkinter.CTkEntry(master=loan_controls_frame,
+                                             placeholder_text="💵 Enter loan amount (max $5,000)",
+                                             width=250, height=40,
+                                             font=("Arial", 14),
+                                             corner_radius=10,
+                                             border_width=2,
+                                             border_color=("#3498DB", "#2980B9"))
+    loan_amount_entry.pack(pady=(0, 15))
     
-    loan_amount_entry = customtkinter.CTkEntry(master=loan_input_frame,
-                                             placeholder_text="💵 Loan amount (max $5,000)",
-                                             width=200, height=40,
-                                             font=("Arial", 14))
-    loan_amount_entry.pack(side="left", padx=(0, 15))
+    # Compact buttons frame
+    buttons_frame = customtkinter.CTkFrame(master=loan_controls_frame, fg_color="transparent")
+    buttons_frame.pack(pady=(0, 10))
+    
+    # Result label for feedback - compact
+    loan_result_label = customtkinter.CTkLabel(master=loan_controls_frame,
+                                             text="💡 Enter amount and click 'Take Loan' to get started",
+                                             font=("Arial", 12, "bold"),
+                                             text_color=("#888888", "#888888"))
+    loan_result_label.pack(pady=(0, 15))
     
     def take_loan():
         global balance, loan_info, current_balance_label
@@ -2083,10 +2132,18 @@ def show_bank() -> None:
             loan_amount = int(loan_amount_entry.get() or 0)
             
             if loan_info["amount"] > 0:
-                # Show error in some way - we could add a result label to loans tab
+                loan_result_label.configure(text="❌ You already have an active loan!", 
+                                          text_color=("#FF6B6B", "#FF4757"))
                 return
             
-            if loan_amount <= 0 or loan_amount > credit_limit:
+            if loan_amount <= 0:
+                loan_result_label.configure(text="❌ Please enter a valid amount!", 
+                                          text_color=("#FF6B6B", "#FF4757"))
+                return
+                
+            if loan_amount > credit_limit:
+                loan_result_label.configure(text=f"❌ Maximum loan amount is ${credit_limit:,}!", 
+                                          text_color=("#FF6B6B", "#FF4757"))
                 return
             
             # Random interest rate between 5% and 15%
@@ -2110,24 +2167,30 @@ def show_bank() -> None:
             # Record transaction
             add_transaction("income", loan_amount, f"Bank Loan ({interest_rate:.2f}%)")
             
-            # Update displays
-            if 'update_bank_display' in globals():
-                update_bank_display()
-            
+            loan_result_label.configure(text=f"✅ Loan approved! ${loan_amount:,} added to balance", 
+                                      text_color=("#00FF7F", "#00FF7F"))
             loan_amount_entry.delete(0, "end")
             
+            # Refresh the bank display completely
+            show_bank()
+            
         except ValueError:
-            pass
+            loan_result_label.configure(text="❌ Please enter a valid number!", 
+                                      text_color=("#FF6B6B", "#FF4757"))
     
     def pay_loan():
         global balance, loan_info, current_balance_label
         
         if loan_info["amount"] <= 0:
+            loan_result_label.configure(text="❌ No active loan to pay!", 
+                                      text_color=("#FF6B6B", "#FF4757"))
             return
         
         payment = loan_info["monthly_payment"]
         
         if balance < payment:
+            loan_result_label.configure(text=f"❌ Insufficient funds! Need ${payment:,}", 
+                                      text_color=("#FF6B6B", "#FF4757"))
             return
         
         balance -= payment
@@ -2141,24 +2204,32 @@ def show_bank() -> None:
         
         if loan_info["remaining_payments"] <= 0:
             loan_info = {"amount": 0, "interest_rate": 0.0, "monthly_payment": 0, "remaining_payments": 0}
-
-        if 'update_bank_display' in globals():
-            update_bank_display()
+            loan_result_label.configure(text="🎉 Loan fully paid off! Congratulations!", 
+                                      text_color=("#00FF7F", "#00FF7F"))
+        else:
+            loan_result_label.configure(text=f"✅ Payment successful! {loan_info['remaining_payments']} payments remaining", 
+                                      text_color=("#00FF7F", "#00FF7F"))
+        
+        # Refresh the bank display completely  
+        show_bank()
     
-    take_loan_btn = customtkinter.CTkButton(master=loan_input_frame,
+    
+    take_loan_btn = customtkinter.CTkButton(master=buttons_frame,
                                           text="💳 Take Loan",
                                           command=take_loan,
                                           width=120, height=40,
                                           font=("Arial", 14, "bold"),
+                                          corner_radius=10,
                                           fg_color=("#E74C3C", "#C0392B"),
                                           hover_color=("#CB4335", "#A93226"))
     take_loan_btn.pack(side="left", padx=(0, 10))
     
-    pay_loan_btn = customtkinter.CTkButton(master=loan_input_frame,
+    pay_loan_btn = customtkinter.CTkButton(master=buttons_frame,
                                          text="💰 Pay Monthly",
                                          command=pay_loan,
                                          width=120, height=40,
                                          font=("Arial", 14, "bold"),
+                                         corner_radius=10,
                                          fg_color=("#27AE60", "#229954"),
                                          hover_color=("#2ECC71", "#27AE60"))
     pay_loan_btn.pack(side="left")
@@ -2266,8 +2337,19 @@ def get_health_status(score):
     else:
         return "Poor"
 
+def get_health_emoji(score):
+    """Get emoji based on health score"""
+    if score >= 75:
+        return "🟢"
+    elif score >= 50:
+        return "🟡"
+    elif score >= 25:
+        return "🟠"
+    else:
+        return "🔴"
+
 def create_transaction_visual_chart(parent, transactions):
-    """Create visual chart for transactions"""
+    """Create visual chart for transactions with better alignment"""
     chart_frame = customtkinter.CTkFrame(master=parent, fg_color="transparent")
     chart_frame.pack(fill="x", padx=20, pady=(0, 15))
     
@@ -2280,12 +2362,23 @@ def create_transaction_visual_chart(parent, transactions):
         row = customtkinter.CTkFrame(master=chart_frame, fg_color="transparent")
         row.pack(fill="x", pady=2)
         
+        # Create left side with emoji and description
+        left_side = customtkinter.CTkFrame(master=row, fg_color="transparent")
+        left_side.pack(side="left", padx=(0, 15))
+        
+        # Transaction type emoji
+        emoji = "🟢" if transaction["type"] == "income" else "🔴"
+        emoji_label = customtkinter.CTkLabel(master=left_side,
+                                           text=emoji,
+                                           font=("Arial", 14))
+        emoji_label.pack(side="left", padx=(0, 8))
+        
         # Transaction info
-        info_label = customtkinter.CTkLabel(master=row,
-                                          text=f"{transaction['description'][:15]}:",
+        info_label = customtkinter.CTkLabel(master=left_side,
+                                          text=f"{transaction['description'][:15]}",
                                           font=("Arial", 12),
-                                          width=150)
-        info_label.pack(side="left", padx=(0, 10))
+                                          width=120)
+        info_label.pack(side="left")
         
         # Visual bar
         bar_length = transaction["amount"] / max_amount if max_amount > 0 else 0
@@ -2295,7 +2388,7 @@ def create_transaction_visual_chart(parent, transactions):
                                          width=200, height=15,
                                          progress_color=bar_color,
                                          fg_color=("#555555", "#444444"))
-        bar.pack(side="left", padx=(0, 10))
+        bar.pack(side="left", padx=(0, 15))
         bar.set(bar_length)
         
         # Amount
@@ -2314,25 +2407,25 @@ def create_spending_category_chart(parent, transactions):
         no_data.pack(pady=30)
         return
     
-    # Categorize expenses
+    # Categorize expenses with emojis
     categories = {
-        "Gaming": 0,
-        "Shopping": 0,
-        "Loans": 0,
-        "Other": 0
+        "🎮 Gaming": 0,
+        "🛍️ Shopping": 0, 
+        "💳 Loans": 0,
+        "📦 Other": 0
     }
     
     for t in transactions:
         if t["type"] == "expense":
             desc = t["description"].lower()
             if any(game in desc for game in ["flip", "guess", "roulette", "blackjack", "dice", "slot"]):
-                categories["Gaming"] += t["amount"]
+                categories["🎮 Gaming"] += t["amount"]
             elif "shop" in desc or "buy" in desc or "sell" in desc:
-                categories["Shopping"] += t["amount"]
+                categories["🛍️ Shopping"] += t["amount"]
             elif "loan" in desc:
-                categories["Loans"] += t["amount"]
+                categories["💳 Loans"] += t["amount"]
             else:
-                categories["Other"] += t["amount"]
+                categories["📦 Other"] += t["amount"]
     
     total_expenses = sum(categories.values())
     if total_expenses == 0:
@@ -2353,12 +2446,16 @@ def create_spending_category_chart(parent, transactions):
             row = customtkinter.CTkFrame(master=chart_container, fg_color="transparent")
             row.pack(fill="x", pady=5)
             
-            # Category label
-            cat_label = customtkinter.CTkLabel(master=row,
-                                             text=f"{category}:",
+            # Left side with aligned emoji and text
+            left_side = customtkinter.CTkFrame(master=row, fg_color="transparent")
+            left_side.pack(side="left", padx=(0, 20))
+            
+            # Category label with emoji and text properly aligned
+            cat_label = customtkinter.CTkLabel(master=left_side,
+                                             text=category,
                                              font=("Arial", 14, "bold"),
-                                             width=100)
-            cat_label.pack(side="left", padx=(0, 15))
+                                             width=120)
+            cat_label.pack(side="left")
             
             # Progress bar
             percentage = amount / total_expenses
@@ -2379,26 +2476,25 @@ def create_spending_category_chart(parent, transactions):
 def create_active_loan_display(parent, loan_info):
     """Create display for active loan"""
     loan_frame = customtkinter.CTkFrame(master=parent, fg_color="transparent")
-    loan_frame.pack(fill="x", padx=20, pady=15)
+    loan_frame.pack(fill="x", padx=15, pady=10)
     
-    # Loan details with progress bar
+    # Loan details with progress bar - compact
     details_frame = customtkinter.CTkFrame(master=loan_frame,
                                          corner_radius=10,
                                          fg_color=("#FF6B6B", "#FF4757"))
-    details_frame.pack(fill="x", pady=(0, 15))
+    details_frame.pack(fill="x", pady=(0, 10))
     
     loan_amount_label = customtkinter.CTkLabel(master=details_frame,
                                              text=f"💳 Outstanding Loan: ${loan_info['amount']:,}",
-                                             font=("Arial", 16, "bold"),
+                                             font=("Arial", 14, "bold"),
                                              text_color=("white", "white"))
-    loan_amount_label.pack(pady=(15, 5))
+    loan_amount_label.pack(pady=(10, 5))
     
-    # Payment progress
-    total_original = loan_info["amount"] + (loan_info["monthly_payment"] * (12 - loan_info["remaining_payments"]))
+    # Payment progress - compact
     progress = (12 - loan_info["remaining_payments"]) / 12
     
     progress_bar = customtkinter.CTkProgressBar(master=details_frame,
-                                              width=300, height=15,
+                                              width=250, height=12,
                                               progress_color=("#FFFFFF", "#FFFFFF"),
                                               fg_color=("#AA0000", "#880000"))
     progress_bar.pack(pady=5)
@@ -2406,28 +2502,28 @@ def create_active_loan_display(parent, loan_info):
     
     progress_label = customtkinter.CTkLabel(master=details_frame,
                                           text=f"Payments: {12 - loan_info['remaining_payments']}/12 completed",
-                                          font=("Arial", 12),
+                                          font=("Arial", 11),
                                           text_color=("white", "white"))
-    progress_label.pack(pady=(0, 15))
+    progress_label.pack(pady=(0, 10))
 
 def create_no_loan_display(parent):
     """Create display when no loan is active"""
     no_loan_frame = customtkinter.CTkFrame(master=parent,
                                          corner_radius=10,
                                          fg_color=("#2ECC71", "#27AE60"))
-    no_loan_frame.pack(fill="x", padx=20, pady=15)
+    no_loan_frame.pack(fill="x", padx=15, pady=10)
     
     status_label = customtkinter.CTkLabel(master=no_loan_frame,
                                         text="✅ No Active Loans - Debt Free!",
-                                        font=("Arial", 16, "bold"),
+                                        font=("Arial", 14, "bold"),
                                         text_color=("white", "white"))
-    status_label.pack(pady=15)
+    status_label.pack(pady=10)
     
     credit_label = customtkinter.CTkLabel(master=no_loan_frame,
                                         text=f"💡 Available Credit: ${credit_limit:,}",
-                                        font=("Arial", 14),
+                                        font=("Arial", 12),
                                         text_color=("white", "white"))
-    credit_label.pack(pady=(0, 15))
+    credit_label.pack(pady=(0, 10))
 
 def create_transaction_history_display(parent, transactions):
     """Create enhanced transaction history display"""
@@ -2508,9 +2604,13 @@ def create_transaction_history_display(parent, transactions):
 # Global update function for live bank updates
 def update_bank_display():
     """Update bank display when called from other parts of the app"""
-    # This function will be set when show_bank() is called
-    # and will update all bank tabs live
-    pass
+    # This will refresh the entire bank display when called
+    # It's simpler to just call show_bank() to refresh everything
+    try:
+        show_bank()
+    except:
+        # If there's any error, just pass silently
+        pass
 
 
 buttons: Dict[str, Callable[[], None]] = {"Bank": show_bank, "Shop": show_shop, "Settings": show_settings, "Reload": reload}
