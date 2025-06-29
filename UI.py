@@ -29,6 +29,7 @@ balance = 1000
 current_bet = 0
 game_active = False
 sidebar_expanded = False
+bank_tabview_ref = None  # Reference to bank tabview for tracking inner tab changes
 
 inventory: Dict[str, int] = {}
 shop_items = {
@@ -122,70 +123,208 @@ credit_limit = 5000
 # Save file path
 SAVE_FILE = "gambling_simulator_save.dill"
 
-# Variables to exclude from automatic snapshot (UI elements, functions, modules, etc.)
+# Variables to exclude from automatic snapshot (UI elements and non-serializable objects)
 EXCLUDED_VARS = {
-    'app', 'main_frame', 'current_frame', 'current_title', 'current_bet_frame', 'current_balance_label',
+    # Python modules and imports
     'customtkinter', 'subprocess', 'random', 'time', 'datetime', 'dill', 'os', 'Dict', 'Callable',
-    'SAVE_FILE', 'EXCLUDED_VARS', 'sidebar_expanded', 'game_active',
-    # Function names
+    'SAVE_FILE', 'EXCLUDED_VARS',
+    # Tkinter/UI objects that can't be serialized
+    'app', 'main_frame', 'current_frame', 'current_title', 'current_bet_frame', 'current_balance_label',
+    # Core functions that get recreated on load
     'update_market_prices', 'get_price_trend_emoji', 'get_price_change_color', 'add_transaction',
-    'save_game_state', 'load_game_state', 'auto_save', 'reload', 'on_window_close',
+    'save_game_state', 'load_game_state', 'auto_save', 'reload', 'on_window_close', 'track_ui_change',
+    'capture_deep_state', 'restore_ui_state',
     'show_casino', 'show_number_guesser', 'show_roulette', 'show_blackjack', 'show_dice_roll', 'show_slot_machine',
     'show_bank', 'show_shop', 'show_settings', 'create_sidebar', 'update_bank_display',
+    # Timer and async IDs
+    'pending_save_id',
     # Module level variables that shouldn't be saved
     '__name__', '__doc__', '__file__', '__package__', '__builtins__', '__cached__', '__spec__'
 }
 
-def save_game_state():
-    """Save a complete snapshot of all relevant global variables using dill"""
+# Track which UI function is currently active
+current_ui_state = {
+    'active_function': 'show_casino',  # Default starting function
+    'ui_elements': {},  # Store references to current UI elements
+    'bank_active_tab': '📊 Dashboard',  # Track which bank sub-tab is active
+    'last_update': None
+}
+
+def is_serializable(obj):
+    """Check if an object can be serialized with dill"""
+    try:
+        # Quick check for common non-serializable types
+        if hasattr(obj, 'winfo_exists'):  # Tkinter widget
+            return False
+        if hasattr(obj, '__module__') and obj.__module__ == 'tkinter':
+            return False
+        if str(type(obj)) in ['<class \'_tkinter.tkapp\'>', '<class \'tkinter.Tk\'>', '<class \'customtkinter.CTk\'>']:
+            return False
+        if callable(obj) and hasattr(obj, '__name__'):  # Functions
+            return False
+        
+        # Try a quick dill test
+        dill.dumps(obj)
+        return True
+    except:
+        return False
+
+def capture_deep_state():
+    """Capture a comprehensive but safe snapshot of serializable game state"""
     try:
         # Get current global namespace
         current_globals = globals().copy()
         
-        # Create game state snapshot by filtering out UI elements, functions, and modules
+        # Create game state snapshot
         game_state = {}
         saved_vars = []
+        failed_vars = []
         
+        # Save ALL serializable global variables
         for var_name, var_value in current_globals.items():
-            # Skip if variable is in exclusion list
+            # Skip excluded variables
             if var_name in EXCLUDED_VARS:
                 continue
                 
-            # Skip if it's a function, class, or module
-            if callable(var_value) or hasattr(var_value, '__module__'):
-                continue
-                
-            # Skip private variables (starting with _)
-            if var_name.startswith('_'):
-                continue
-                
-            # Skip if it's a type or builtin
-            if isinstance(var_value, type) or var_name in dir(__builtins__):
+            # Skip private variables (starting with _) except our important ones
+            if var_name.startswith('_') and var_name not in ['_save_metadata']:
                 continue
             
-            # Save the variable
-            game_state[var_name] = var_value
-            saved_vars.append(var_name)
+            # Check if the object is serializable
+            if is_serializable(var_value):
+                try:
+                    # Double-check by actually trying to serialize
+                    test_data = dill.dumps(var_value)
+                    game_state[var_name] = var_value
+                    saved_vars.append(var_name)
+                except Exception as e:
+                    failed_vars.append((var_name, str(e)))
+            else:
+                # For non-serializable objects, save metadata about them
+                try:
+                    metadata = {
+                        'type': str(type(var_value)),
+                        'repr': str(var_value)[:100] if hasattr(var_value, '__repr__') else 'No repr',
+                        'serializable': False
+                    }
+                    game_state[f'{var_name}_META'] = metadata
+                    saved_vars.append(f'{var_name}_META')
+                except:
+                    failed_vars.append((var_name, 'Could not create metadata'))
         
-        # Add metadata
+        # Capture current UI state in a serializable way
+        ui_state_snapshot = {
+            'current_ui_state': current_ui_state.copy(),
+            'active_elements': {},
+            'window_info': {}
+        }
+        
+        # Try to capture basic window information (serializable parts only)
+        try:
+            if 'app' in current_globals:
+                app_obj = current_globals['app']
+                if hasattr(app_obj, 'winfo_exists') and app_obj.winfo_exists():
+                    ui_state_snapshot['window_info'] = {
+                        'geometry': app_obj.geometry(),
+                        'title': app_obj.title(),
+                        'width': app_obj.winfo_width(),
+                        'height': app_obj.winfo_height(),
+                        'x': app_obj.winfo_x(),
+                        'y': app_obj.winfo_y()
+                    }
+        except Exception as e:
+            ui_state_snapshot['window_info']['error'] = str(e)
+        
+        # Add comprehensive metadata
         game_state['_save_metadata'] = {
             'timestamp': datetime.datetime.now().isoformat(),
             'saved_variables': saved_vars,
-            'variable_count': len(saved_vars)
+            'failed_variables': failed_vars,
+            'variable_count': len(saved_vars),
+            'ui_state': ui_state_snapshot,
+            'save_type': 'safe_deep_snapshot'
         }
+        
+        return game_state, saved_vars, failed_vars
+        
+    except Exception as e:
+        print(f"❌ Error capturing deep state: {e}")
+        return {}, [], [(f"global_error", str(e))]
+
+def save_game_state():
+    """Save a complete safe snapshot of serializable application state using dill"""
+    try:
+        game_state, saved_vars, failed_vars = capture_deep_state()
+        
+        if not game_state:
+            print("❌ Failed to capture game state")
+            return
         
         # Save to file
         with open(SAVE_FILE, 'wb') as f:
             dill.dump(game_state, f)
             
-        print(f"✅ Game snapshot saved: {len(saved_vars)} variables at {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        print(f"📊 Saved variables: {', '.join(sorted(saved_vars))}")
+        print(f"✅ Safe deep snapshot saved: {len(saved_vars)} variables at {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        
+        # Show summary of saved variables
+        important_vars = [v for v in saved_vars if not v.endswith('_META')]
+        if len(important_vars) <= 10:
+            print(f"📊 Saved: {', '.join(sorted(important_vars))}")
+        else:
+            print(f"📊 Saved: {', '.join(sorted(important_vars)[:8])}... (+{len(important_vars)-8} more)")
+        
+        # Show failed variables (if any)
+        if failed_vars:
+            print(f"⚠️ Could not save {len(failed_vars)} variables: {', '.join([v[0] for v in failed_vars[:3]])}{'...' if len(failed_vars) > 3 else ''}")
+        
+        # Show UI state info
+        metadata = game_state.get('_save_metadata', {})
+        ui_state = metadata.get('ui_state', {})
+        if ui_state.get('window_info'):
+            print(f"🖥️ Window state captured: {ui_state['window_info'].get('geometry', 'unknown')}")
         
     except Exception as e:
-        print(f"❌ Error saving game state: {e}")
+        print(f"❌ Error saving safe deep state: {e}")
+
+def restore_ui_state(ui_state_snapshot):
+    """Attempt to restore UI state after loading"""
+    try:
+        current_ui = ui_state_snapshot.get('current_ui_state', {})
+        active_function = current_ui.get('active_function', 'show_casino')
+        
+        # Update current UI state
+        global current_ui_state
+        current_ui_state.update(current_ui)
+        
+        print(f"🖥️ Restoring UI state: {active_function}")
+        if current_ui.get('bank_active_tab'):
+            print(f"🏦 Will restore bank tab: {current_ui['bank_active_tab']}")
+        
+        # Try to restore the active UI function
+        if active_function in globals() and callable(globals()[active_function]):
+            # Schedule UI restoration after main loop starts
+            if 'app' in globals():
+                globals()['app'].after(100, lambda: globals()[active_function]())
+                
+        # Try to restore window state
+        window_info = ui_state_snapshot.get('window_info', {})
+        if window_info and 'app' in globals():
+            try:
+                if 'geometry' in window_info:
+                    globals()['app'].after(200, lambda: globals()['app'].geometry(window_info['geometry']))
+                if 'title' in window_info:
+                    globals()['app'].title(window_info['title'])
+            except Exception as e:
+                print(f"⚠️ Could not fully restore window state: {e}")
+        
+        return True
+        
+    except Exception as e:
+        print(f"⚠️ Could not restore UI state: {e}")
+        return False
 
 def load_game_state():
-    """Load the complete game state snapshot from file using dill"""
+    """Load the complete safe game state snapshot from file using dill"""
     if not os.path.exists(SAVE_FILE):
         print("📁 No save file found, starting with default values")
         return False
@@ -197,7 +336,9 @@ def load_game_state():
         # Get metadata if available
         metadata = game_state.get('_save_metadata', {})
         saved_vars = metadata.get('saved_variables', [])
+        failed_vars = metadata.get('failed_variables', [])
         save_timestamp = metadata.get('timestamp', 'Unknown')
+        save_type = metadata.get('save_type', 'basic')
         
         # Get current globals to update
         current_globals = globals()
@@ -208,24 +349,84 @@ def load_game_state():
             if var_name == '_save_metadata':
                 continue  # Skip metadata
                 
+            # Handle metadata entries (skip them for actual loading)
+            if var_name.endswith('_META'):
+                continue
+                
             # Update global variable
             current_globals[var_name] = var_value
             loaded_vars.append(var_name)
         
-        print(f"✅ Game snapshot loaded: {len(loaded_vars)} variables from {save_timestamp}")
-        print(f"📊 Loaded variables: {', '.join(sorted(loaded_vars))}")
+        print(f"✅ Safe deep snapshot loaded: {len(loaded_vars)} variables from {save_timestamp}")
+        
+        # Show summary
+        if len(loaded_vars) <= 10:
+            print(f"📊 Loaded: {', '.join(sorted(loaded_vars))}")
+        else:
+            print(f"📊 Loaded: {', '.join(sorted(loaded_vars)[:8])}... (+{len(loaded_vars)-8} more)")
+        
+        if failed_vars:
+            print(f"⚠️ {len(failed_vars)} variables were not saved in original session")
+        
+        # Restore UI state if available
+        ui_state = metadata.get('ui_state')
+        if ui_state:
+            restore_ui_state(ui_state)
+        
         return True
         
     except Exception as e:
-        print(f"❌ Error loading game state: {e}")
+        print(f"❌ Error loading safe deep state: {e}")
         print("🔄 Starting with default values")
         return False
+
+def track_bank_tab_change():
+    """Track when bank inner tab changes"""
+    global current_ui_state, bank_tabview_ref
+    if 'bank_tabview_ref' in globals() and bank_tabview_ref is not None:
+        try:
+            active_tab = bank_tabview_ref.get()
+            current_ui_state['bank_active_tab'] = active_tab
+            current_ui_state['last_update'] = datetime.datetime.now().isoformat()
+            print(f"🏦 Bank tab changed to: {active_tab}")
+            
+            # Trigger save after tab change
+            if 'app' in globals():
+                try:
+                    globals()['app'].after_cancel(globals().get('pending_save_id', ''))
+                except:
+                    pass
+                globals()['pending_save_id'] = globals()['app'].after(2000, save_game_state)  # Save after 2 seconds
+        except Exception as e:
+            print(f"⚠️ Could not track bank tab change: {e}")
+
+def track_ui_change(function_name):
+    """Track when UI state changes"""
+    global current_ui_state
+    current_ui_state['active_function'] = function_name
+    current_ui_state['last_update'] = datetime.datetime.now().isoformat()
+    
+    # Auto-save after UI changes (but not too frequently)
+    if 'app' in globals():
+        # Cancel any pending save and schedule a new one
+        try:
+            globals()['app'].after_cancel(globals().get('pending_save_id', ''))
+        except:
+            pass
+        globals()['pending_save_id'] = globals()['app'].after(2000, save_game_state)  # Save after 2 seconds
+        # Cancel any pending save and schedule a new one
+        try:
+            globals()['app'].after_cancel(globals().get('pending_save_id', ''))
+        except:
+            pass
+        globals()['pending_save_id'] = globals()['app'].after(2000, save_game_state)  # Save 2 seconds after UI change
 
 def auto_save():
     """Automatically save the game state and schedule the next auto-save"""
     save_game_state()
-    # Schedule next auto-save in 60 seconds (60000 ms)
-    app.after(60000, auto_save)
+    # Schedule next auto-save in 30 seconds (shorter interval for deep saves)
+    if 'app' in globals():
+        app.after(30000, auto_save)
 
 def add_transaction(transaction_type: str, amount: int, description: str) -> None:
     """Add a transaction to the history for banking tracking"""
@@ -250,6 +451,7 @@ def reload() -> None:
     exit(0)
 
 def show_casino() -> None:
+    track_ui_change('show_casino')  # Track UI state change
     global current_frame, current_title, current_bet_frame, current_balance_label, balance, current_bet, game_active
     if current_frame:
         current_frame.destroy()
@@ -448,6 +650,7 @@ def show_casino() -> None:
             pass  # UI elements destroyed
 
 def show_number_guesser() -> None:
+    track_ui_change('show_number_guesser')  # Track UI state change
     global current_frame, current_title, current_bet_frame, current_balance_label, balance, current_bet, game_active
     if current_frame:
         current_frame.destroy()
@@ -630,6 +833,7 @@ def show_number_guesser() -> None:
             result_label.configure(text="Please enter valid numbers!")
 
 def show_roulette() -> None:
+    track_ui_change('show_roulette')  # Track UI state change
     global current_frame, current_title, current_bet_frame, current_balance_label, balance, current_bet, game_active
     if current_frame:
         current_frame.destroy()
@@ -824,6 +1028,7 @@ def show_roulette() -> None:
                 pass  # UI elements destroyed
 
 def show_blackjack() -> None:
+    track_ui_change('show_blackjack')  # Track UI state change
     global current_frame, current_title, current_bet_frame, current_balance_label, balance, current_bet, game_active
     if current_frame:
         current_frame.destroy()
@@ -1106,6 +1311,7 @@ def show_blackjack() -> None:
             pass  # UI elements destroyed
 
 def show_dice_roll() -> None:
+    track_ui_change('show_dice_roll')  # Track UI state change
     global current_frame, current_title, current_bet_frame, current_balance_label, balance, current_bet, game_active
     if current_frame:
         current_frame.destroy()
@@ -1326,6 +1532,7 @@ def show_dice_roll() -> None:
                 pass  # UI elements destroyed
 
 def show_slot_machine() -> None:
+    track_ui_change('show_slot_machine')  # Track UI state change
     global current_frame, current_title, current_bet_frame, current_balance_label, balance, current_bet, game_active
     if current_frame:
         current_frame.destroy()
@@ -1541,6 +1748,7 @@ def show_slot_machine() -> None:
                 pass  # UI elements destroyed
 
 def show_shop() -> None:
+    track_ui_change('show_shop')  # Track UI state change
     global current_frame, current_title, current_bet_frame, current_balance_label, balance
     if current_frame:
         current_frame.destroy()
@@ -1940,6 +2148,7 @@ def show_shop() -> None:
     switch_to_shop_tab()
 
 def show_settings() -> None:
+    track_ui_change('show_settings')  # Track UI state change
     global current_frame, current_title, current_bet_frame, current_balance_label
     if current_frame:
         current_frame.destroy()
@@ -2230,7 +2439,8 @@ def create_sidebar(buttons: Dict[str, Callable[[], None]]) -> None:
     separator.pack(side="left", fill="y")
 
 def show_bank() -> None:
-    global current_frame, current_title, current_bet_frame, current_balance_label, balance, transaction_history, loan_info
+    track_ui_change('show_bank')  # Track UI state change
+    global current_frame, current_title, current_bet_frame, current_balance_label, balance, transaction_history, loan_info, bank_tabview_ref
     if current_frame:
         current_frame.destroy()
     if current_title:
@@ -2269,14 +2479,31 @@ def show_bank() -> None:
                                           segmented_button_unselected_color=("#34495E", "#2C3E50"),
                                           segmented_button_unselected_hover_color=("#3498DB", "#2980B9"),
                                           text_color=("#FFFFFF", "#FFFFFF"),
-                                          text_color_disabled=("#7F8C8D", "#7F8C8D"))
+                                          text_color_disabled=("#7F8C8D", "#7F8C8D"),
+                                          command=track_bank_tab_change)  # Track tab changes
     bank_tabview.pack(fill="both", expand=True, padx=25, pady=25)
+    
+    # Store reference for tracking tab changes
+    bank_tabview_ref = bank_tabview
     
     # Create modern tabs with icons
     overview_tab = bank_tabview.add("📊 Dashboard")
     analytics_tab = bank_tabview.add("📈 Analytics") 
     loans_tab = bank_tabview.add("💳 Credit")
     history_tab = bank_tabview.add("📋 Transactions")
+    
+    # Restore previously selected tab if available
+    if current_ui_state.get('bank_active_tab'):
+        try:
+            bank_tabview.set(current_ui_state['bank_active_tab'])
+            print(f"🏦 Restored bank tab: {current_ui_state['bank_active_tab']}")
+        except Exception as e:
+            print(f"⚠️ Could not restore bank tab, using default: {e}")
+            bank_tabview.set("📊 Dashboard")
+    else:
+        # Set default tab
+        bank_tabview.set("📊 Dashboard")
+        current_ui_state['bank_active_tab'] = "📊 Dashboard"
     
     # =================== OVERVIEW TAB ===================
     
