@@ -3,11 +3,20 @@ import subprocess
 import random
 import time
 import datetime
+import dill
+import os
 from typing import Dict, Callable
 
 app = customtkinter.CTk()
 app.geometry("1200x700")
 app.title("Gambling Simulator")
+
+# Save game when window is closed
+def on_window_close():
+    save_game_state()
+    app.destroy()
+
+app.protocol("WM_DELETE_WINDOW", on_window_close)
 
 customtkinter.set_appearance_mode("dark")
 customtkinter.set_default_color_theme("blue")
@@ -110,6 +119,114 @@ transaction_history = []  # List of transactions: {"type": "income/expense", "am
 loan_info = {"amount": 0, "interest_rate": 0.0, "monthly_payment": 0, "remaining_payments": 0}
 credit_limit = 5000
 
+# Save file path
+SAVE_FILE = "gambling_simulator_save.dill"
+
+# Variables to exclude from automatic snapshot (UI elements, functions, modules, etc.)
+EXCLUDED_VARS = {
+    'app', 'main_frame', 'current_frame', 'current_title', 'current_bet_frame', 'current_balance_label',
+    'customtkinter', 'subprocess', 'random', 'time', 'datetime', 'dill', 'os', 'Dict', 'Callable',
+    'SAVE_FILE', 'EXCLUDED_VARS', 'sidebar_expanded', 'game_active',
+    # Function names
+    'update_market_prices', 'get_price_trend_emoji', 'get_price_change_color', 'add_transaction',
+    'save_game_state', 'load_game_state', 'auto_save', 'reload', 'on_window_close',
+    'show_casino', 'show_number_guesser', 'show_roulette', 'show_blackjack', 'show_dice_roll', 'show_slot_machine',
+    'show_bank', 'show_shop', 'show_settings', 'create_sidebar', 'update_bank_display',
+    # Module level variables that shouldn't be saved
+    '__name__', '__doc__', '__file__', '__package__', '__builtins__', '__cached__', '__spec__'
+}
+
+def save_game_state():
+    """Save a complete snapshot of all relevant global variables using dill"""
+    try:
+        # Get current global namespace
+        current_globals = globals().copy()
+        
+        # Create game state snapshot by filtering out UI elements, functions, and modules
+        game_state = {}
+        saved_vars = []
+        
+        for var_name, var_value in current_globals.items():
+            # Skip if variable is in exclusion list
+            if var_name in EXCLUDED_VARS:
+                continue
+                
+            # Skip if it's a function, class, or module
+            if callable(var_value) or hasattr(var_value, '__module__'):
+                continue
+                
+            # Skip private variables (starting with _)
+            if var_name.startswith('_'):
+                continue
+                
+            # Skip if it's a type or builtin
+            if isinstance(var_value, type) or var_name in dir(__builtins__):
+                continue
+            
+            # Save the variable
+            game_state[var_name] = var_value
+            saved_vars.append(var_name)
+        
+        # Add metadata
+        game_state['_save_metadata'] = {
+            'timestamp': datetime.datetime.now().isoformat(),
+            'saved_variables': saved_vars,
+            'variable_count': len(saved_vars)
+        }
+        
+        # Save to file
+        with open(SAVE_FILE, 'wb') as f:
+            dill.dump(game_state, f)
+            
+        print(f"✅ Game snapshot saved: {len(saved_vars)} variables at {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"📊 Saved variables: {', '.join(sorted(saved_vars))}")
+        
+    except Exception as e:
+        print(f"❌ Error saving game state: {e}")
+
+def load_game_state():
+    """Load the complete game state snapshot from file using dill"""
+    if not os.path.exists(SAVE_FILE):
+        print("📁 No save file found, starting with default values")
+        return False
+    
+    try:
+        with open(SAVE_FILE, 'rb') as f:
+            game_state = dill.load(f)
+        
+        # Get metadata if available
+        metadata = game_state.get('_save_metadata', {})
+        saved_vars = metadata.get('saved_variables', [])
+        save_timestamp = metadata.get('timestamp', 'Unknown')
+        
+        # Get current globals to update
+        current_globals = globals()
+        loaded_vars = []
+        
+        # Restore all saved variables to global namespace
+        for var_name, var_value in game_state.items():
+            if var_name == '_save_metadata':
+                continue  # Skip metadata
+                
+            # Update global variable
+            current_globals[var_name] = var_value
+            loaded_vars.append(var_name)
+        
+        print(f"✅ Game snapshot loaded: {len(loaded_vars)} variables from {save_timestamp}")
+        print(f"📊 Loaded variables: {', '.join(sorted(loaded_vars))}")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Error loading game state: {e}")
+        print("🔄 Starting with default values")
+        return False
+
+def auto_save():
+    """Automatically save the game state and schedule the next auto-save"""
+    save_game_state()
+    # Schedule next auto-save in 60 seconds (60000 ms)
+    app.after(60000, auto_save)
+
 def add_transaction(transaction_type: str, amount: int, description: str) -> None:
     """Add a transaction to the history for banking tracking"""
     global transaction_history
@@ -121,8 +238,12 @@ def add_transaction(transaction_type: str, amount: int, description: str) -> Non
     })
     if len(transaction_history) > 50:
         transaction_history = transaction_history[-50:]
+    
+    # Auto-save after each transaction
+    save_game_state()
 
 def reload() -> None:
+    save_game_state()  # Save before reloading
     app.quit()
     app.destroy()
     subprocess.run(["python", r".\ui.py"], shell=True)
@@ -1470,39 +1591,61 @@ def show_shop() -> None:
                                                    fg_color="transparent")
     content_frame.pack(fill="both", expand=True, padx=20, pady=(0, 20))
     
+    # Store reference to status label for auto-refresh
+    status_label_ref = None
+    
     def switch_to_shop_tab():
+        nonlocal status_label_ref
         # Update market prices before displaying
         update_market_prices()
         
-        for widget in content_frame.winfo_children():
-            widget.destroy()
+        try:
+            # Check if content_frame still exists before trying to access its children
+            if content_frame.winfo_exists():
+                for widget in content_frame.winfo_children():
+                    widget.destroy()
+            else:
+                return  # Exit if the frame no longer exists
+        except:
+            return  # Exit if there's an error accessing the frame
         
-        shop_tab_btn.configure(fg_color=("#4ECDC4", "#26D0CE"))
-        inventory_tab_btn.configure(fg_color=("#555555", "#404040"))
+        try:
+            shop_tab_btn.configure(fg_color=("#4ECDC4", "#26D0CE"))
+            inventory_tab_btn.configure(fg_color=("#555555", "#404040"))
+        except:
+            return  # Exit if button widgets don't exist
         
         # Auto-refresh mechanism for shop prices
         def auto_refresh_shop():
-            # Only refresh if we're still on the shop tab
-            if shop_tab_btn.cget("fg_color") == ("#4ECDC4", "#26D0CE"):
-                old_prices = {emoji: item["price"] for emoji, item in shop_items.items()}
-                update_market_prices()
-                
-                # Check if any prices changed
-                prices_changed = any(shop_items[emoji]["price"] != old_prices[emoji] for emoji in old_prices)
-                
-                if prices_changed:
-                    # Refresh the shop display
-                    switch_to_shop_tab()
-                else:
-                    # Just update the countdown timer
-                    try:
-                        next_update = int(price_update_interval - (time.time() - last_price_update))
-                        status_label.configure(text=f"⏰ Next price update in: {max(0, next_update)}s")
-                    except:
-                        pass
-                
-                # Schedule next check in 1 second
-                app.after(1000, auto_refresh_shop)
+            try:
+                # Check if widgets still exist and we're still on the shop tab
+                if (content_frame.winfo_exists() and 
+                    shop_tab_btn.winfo_exists() and 
+                    shop_tab_btn.cget("fg_color") == ("#4ECDC4", "#26D0CE")):
+                    
+                    old_prices = {emoji: item["price"] for emoji, item in shop_items.items()}
+                    update_market_prices()
+                    
+                    # Check if any prices changed
+                    prices_changed = any(shop_items[emoji]["price"] != old_prices[emoji] for emoji in old_prices)
+                    
+                    if prices_changed:
+                        # Refresh the shop display
+                        switch_to_shop_tab()
+                    else:
+                        # Just update the countdown timer
+                        try:
+                            if status_label_ref and status_label_ref.winfo_exists():
+                                next_update = int(price_update_interval - (time.time() - last_price_update))
+                                status_label_ref.configure(text=f"⏰ Next price update in: {max(0, next_update)}s")
+                        except:
+                            pass
+                    
+                    # Schedule next check in 1 second
+                    app.after(1000, auto_refresh_shop)
+            except:
+                # Widget has been destroyed, stop the auto-refresh
+                pass
         
         # Start auto-refresh
         app.after(1000, auto_refresh_shop)
@@ -1525,11 +1668,11 @@ def show_shop() -> None:
         
         # Market status indicator
         next_update = int(price_update_interval - (time.time() - last_price_update))
-        status_label = customtkinter.CTkLabel(master=header_frame, 
+        status_label_ref = customtkinter.CTkLabel(master=header_frame, 
                                             text=f"⏰ Next price update in: {max(0, next_update)}s", 
                                             font=("Arial", 10),
                                             text_color=("#3498DB", "#2980B9"))
-        status_label.pack()
+        status_label_ref.pack()
         
         for emoji, item_data in shop_items.items():
             item_frame = customtkinter.CTkFrame(master=content_frame,
@@ -1607,11 +1750,21 @@ def show_shop() -> None:
             buy_btn.pack()
     
     def switch_to_inventory_tab():
-        for widget in content_frame.winfo_children():
-            widget.destroy()
+        try:
+            # Check if content_frame still exists before trying to access its children
+            if content_frame.winfo_exists():
+                for widget in content_frame.winfo_children():
+                    widget.destroy()
+            else:
+                return  # Exit if the frame no longer exists
+        except:
+            return  # Exit if there's an error accessing the frame
         
-        shop_tab_btn.configure(fg_color=("#555555", "#404040"))
-        inventory_tab_btn.configure(fg_color=("#9B59B6", "#8E44AD"))
+        try:
+            shop_tab_btn.configure(fg_color=("#555555", "#404040"))
+            inventory_tab_btn.configure(fg_color=("#9B59B6", "#8E44AD"))
+        except:
+            return  # Exit if button widgets don't exist
         
         inv_header = customtkinter.CTkLabel(master=content_frame, 
                                           text="🎒 Your Inventory", 
@@ -1797,14 +1950,139 @@ def show_settings() -> None:
     if current_balance_label:
         current_balance_label.destroy()
     
-    current_title = customtkinter.CTkLabel(master=main_frame, text="Settings", font=("Arial", 28, "bold"))
-    current_title.pack(pady=(20, 10))
+    current_title = customtkinter.CTkLabel(master=main_frame, text="⚙️ Settings & Save Game", 
+                                          font=("Arial", 32, "bold"),
+                                          text_color=("#FFD700", "#FFD700"))
+    current_title.pack(pady=(30, 15))
     
-    current_frame = customtkinter.CTkFrame(master=main_frame)
-    current_frame.pack(fill="both", expand=True, padx=20, pady=(0, 20))
+    current_frame = customtkinter.CTkFrame(master=main_frame,
+                                         corner_radius=20,
+                                         fg_color=("#2B2B2B", "#1C1C1C"))
+    current_frame.pack(fill="both", expand=True, padx=30, pady=(0, 30))
     
-    label = customtkinter.CTkLabel(master=current_frame, text="", font=("Arial", 24))
-    label.pack(pady=50)
+    # Game State Info
+    info_frame = customtkinter.CTkFrame(master=current_frame,
+                                       corner_radius=15,
+                                       fg_color=("#333333", "#2A2A2A"))
+    info_frame.pack(fill="x", padx=30, pady=30)
+    
+    info_title = customtkinter.CTkLabel(master=info_frame, 
+                                       text="📊 Current Game State", 
+                                       font=("Arial", 20, "bold"),
+                                       text_color=("#E0E0E0", "#E0E0E0"))
+    info_title.pack(pady=(20, 10))
+    
+    balance_info = customtkinter.CTkLabel(master=info_frame, 
+                                         text=f"💰 Balance: ${balance}", 
+                                         font=("Arial", 16),
+                                         text_color=("#00FF7F", "#00FF7F"))
+    balance_info.pack(pady=5)
+    
+    inventory_count = len(inventory)
+    inventory_info = customtkinter.CTkLabel(master=info_frame, 
+                                           text=f"🎒 Inventory Items: {inventory_count}", 
+                                           font=("Arial", 16))
+    inventory_info.pack(pady=5)
+    
+    transactions_count = len(transaction_history)
+    transaction_info = customtkinter.CTkLabel(master=info_frame, 
+                                             text=f"📋 Transactions: {transactions_count}", 
+                                             font=("Arial", 16))
+    transaction_info.pack(pady=(5, 20))
+    
+    # Save/Load Buttons
+    buttons_frame = customtkinter.CTkFrame(master=current_frame, fg_color="transparent")
+    buttons_frame.pack(pady=30)
+    
+    manual_save_btn = customtkinter.CTkButton(master=buttons_frame, 
+                                             text="💾 Manual Save", 
+                                             width=180, height=50,
+                                             font=("Arial", 16, "bold"),
+                                             fg_color=("#2ECC71", "#27AE60"),
+                                             hover_color=("#58D68D", "#2ECC71"),
+                                             command=lambda: manual_save_callback())
+    manual_save_btn.pack(side="left", padx=15)
+    
+    reset_save_btn = customtkinter.CTkButton(master=buttons_frame, 
+                                            text="🗑️ Reset Game", 
+                                            width=180, height=50,
+                                            font=("Arial", 16, "bold"),
+                                            fg_color=("#E74C3C", "#C0392B"),
+                                            hover_color=("#CB4335", "#A93226"),
+                                            command=lambda: reset_game_callback())
+    reset_save_btn.pack(side="left", padx=15)
+    
+    # Auto-save info
+    auto_save_info = customtkinter.CTkLabel(master=current_frame, 
+                                           text="🔄 Auto-save is enabled (every 60 seconds)\n💾 Game automatically saves after each transaction", 
+                                           font=("Arial", 14),
+                                           text_color=("#A0A0A0", "#A0A0A0"))
+    auto_save_info.pack(pady=20)
+    
+    def manual_save_callback():
+        save_game_state()
+        # Show success message
+        success_window = customtkinter.CTkToplevel(app)
+        success_window.title("Save Successful")
+        success_window.geometry("300x150")
+        success_window.transient(app)
+        success_window.grab_set()
+        
+        success_label = customtkinter.CTkLabel(master=success_window, 
+                                             text="✅ Game saved successfully!", 
+                                             font=("Arial", 16, "bold"),
+                                             text_color=("#00FF7F", "#00FF7F"))
+        success_label.pack(pady=50)
+        
+        close_btn = customtkinter.CTkButton(master=success_window, 
+                                           text="OK", 
+                                           command=success_window.destroy)
+        close_btn.pack()
+    
+    def reset_game_callback():
+        # Confirmation dialog
+        confirm_window = customtkinter.CTkToplevel(app)
+        confirm_window.title("Reset Game")
+        confirm_window.geometry("400x200")
+        confirm_window.transient(app)
+        confirm_window.grab_set()
+        
+        confirm_label = customtkinter.CTkLabel(master=confirm_window, 
+                                              text="⚠️ Are you sure you want to reset?\nThis will delete all progress!", 
+                                              font=("Arial", 16, "bold"),
+                                              text_color=("#E74C3C", "#C0392B"))
+        confirm_label.pack(pady=30)
+        
+        button_frame = customtkinter.CTkFrame(master=confirm_window, fg_color="transparent")
+        button_frame.pack(pady=20)
+        
+        yes_btn = customtkinter.CTkButton(master=button_frame, 
+                                         text="Yes, Reset", 
+                                         fg_color=("#E74C3C", "#C0392B"),
+                                         command=lambda: perform_reset())
+        yes_btn.pack(side="left", padx=10)
+        
+        no_btn = customtkinter.CTkButton(master=button_frame, 
+                                        text="Cancel", 
+                                        command=confirm_window.destroy)
+        no_btn.pack(side="left", padx=10)
+        
+        def perform_reset():
+            global balance, inventory, transaction_history, loan_info, credit_limit
+            balance = 1000
+            inventory = {}
+            transaction_history = []
+            loan_info = {"amount": 0, "interest_rate": 0.0, "monthly_payment": 0, "remaining_payments": 0}
+            credit_limit = 5000
+            
+            # Reset shop items to default prices
+            for emoji, item in shop_items.items():
+                item["price"] = item["base_price"]
+                item["trend"] = 0.0
+            
+            save_game_state()
+            confirm_window.destroy()
+            show_settings()  # Refresh the settings view
 
 def create_sidebar(buttons: Dict[str, Callable[[], None]]) -> None:
     global sidebar_expanded
@@ -3029,12 +3307,19 @@ def update_bank_display():
 
 
 buttons: Dict[str, Callable[[], None]] = {"Bank": show_bank, "Shop": show_shop, "Settings": show_settings, "Reload": reload}
+
+# Load saved game state at startup
+load_game_state()
+
 create_sidebar(buttons)
 
 main_frame = customtkinter.CTkFrame(master=app,
                                    fg_color=("#F0F0F0", "#1A1A1A"),
                                    corner_radius=0)
 main_frame.pack(side="left", fill="both", expand=True)
+
+# Start auto-save timer
+auto_save()
 
 show_casino()
 
