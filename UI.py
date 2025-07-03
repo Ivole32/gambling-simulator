@@ -30,6 +30,7 @@ current_bet = 0
 game_active = False
 sidebar_expanded = False
 bank_tabview_ref = None  # Reference to bank tabview for tracking inner tab changes
+lost = None
 
 inventory: Dict[str, int] = {}
 shop_items = {
@@ -248,7 +249,7 @@ def capture_deep_state():
         return game_state, saved_vars, failed_vars
         
     except Exception as e:
-        print(f"❌ Error capturing deep state: {e}")
+        print(f"Error capturing deep state: {e}")
         return {}, [], [(f"global_error", str(e))]
 
 def save_game_state():
@@ -257,34 +258,34 @@ def save_game_state():
         game_state, saved_vars, failed_vars = capture_deep_state()
         
         if not game_state:
-            print("❌ Failed to capture game state")
+            print("Failed to capture game state")
             return
         
         # Save to file
         with open(SAVE_FILE, 'wb') as f:
             dill.dump(game_state, f)
             
-        print(f"✅ Safe deep snapshot saved: {len(saved_vars)} variables at {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"Safe deep snapshot saved: {len(saved_vars)} variables at {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         
         # Show summary of saved variables
         important_vars = [v for v in saved_vars if not v.endswith('_META')]
         if len(important_vars) <= 10:
-            print(f"📊 Saved: {', '.join(sorted(important_vars))}")
+            print(f"Saved: {', '.join(sorted(important_vars))}")
         else:
-            print(f"📊 Saved: {', '.join(sorted(important_vars)[:8])}... (+{len(important_vars)-8} more)")
+            print(f"Saved: {', '.join(sorted(important_vars)[:8])}... (+{len(important_vars)-8} more)")
         
         # Show failed variables (if any)
         if failed_vars:
-            print(f"⚠️ Could not save {len(failed_vars)} variables: {', '.join([v[0] for v in failed_vars[:3]])}{'...' if len(failed_vars) > 3 else ''}")
+            print(f"Could not save {len(failed_vars)} variables: {', '.join([v[0] for v in failed_vars[:3]])}{'...' if len(failed_vars) > 3 else ''}")
         
         # Show UI state info
         metadata = game_state.get('_save_metadata', {})
         ui_state = metadata.get('ui_state', {})
         if ui_state.get('window_info'):
-            print(f"🖥️ Window state captured: {ui_state['window_info'].get('geometry', 'unknown')}")
+            print(f"Window state captured: {ui_state['window_info'].get('geometry', 'unknown')}")
         
     except Exception as e:
-        print(f"❌ Error saving safe deep state: {e}")
+        print(f"Error saving safe deep state: {e}")
 
 def restore_ui_state(ui_state_snapshot):
     """Attempt to restore UI state after loading"""
@@ -296,9 +297,9 @@ def restore_ui_state(ui_state_snapshot):
         global current_ui_state
         current_ui_state.update(current_ui)
         
-        print(f"🖥️ Restoring UI state: {active_function}")
+        print(f"Restoring UI state: {active_function}")
         if current_ui.get('bank_active_tab'):
-            print(f"🏦 Will restore bank tab: {current_ui['bank_active_tab']}")
+            print(f"Will restore bank tab: {current_ui['bank_active_tab']}")
         
         # Try to restore the active UI function
         if active_function in globals() and callable(globals()[active_function]):
@@ -315,18 +316,18 @@ def restore_ui_state(ui_state_snapshot):
                 if 'title' in window_info:
                     globals()['app'].title(window_info['title'])
             except Exception as e:
-                print(f"⚠️ Could not fully restore window state: {e}")
+                print(f"Could not fully restore window state: {e}")
         
         return True
         
     except Exception as e:
-        print(f"⚠️ Could not restore UI state: {e}")
+        print(f"Could not restore UI state: {e}")
         return False
 
 def load_game_state():
     """Load the complete safe game state snapshot from file using dill"""
     if not os.path.exists(SAVE_FILE):
-        print("📁 No save file found, starting with default values")
+        print("No save file found, starting with default values")
         return False
     
     try:
@@ -357,16 +358,16 @@ def load_game_state():
             current_globals[var_name] = var_value
             loaded_vars.append(var_name)
         
-        print(f"✅ Safe deep snapshot loaded: {len(loaded_vars)} variables from {save_timestamp}")
+        print(f"Safe deep snapshot loaded: {len(loaded_vars)} variables from {save_timestamp}")
         
         # Show summary
         if len(loaded_vars) <= 10:
-            print(f"📊 Loaded: {', '.join(sorted(loaded_vars))}")
+            print(f"Loaded: {', '.join(sorted(loaded_vars))}")
         else:
-            print(f"📊 Loaded: {', '.join(sorted(loaded_vars)[:8])}... (+{len(loaded_vars)-8} more)")
+            print(f"Loaded: {', '.join(sorted(loaded_vars)[:8])}... (+{len(loaded_vars)-8} more)")
         
         if failed_vars:
-            print(f"⚠️ {len(failed_vars)} variables were not saved in original session")
+            print(f"{len(failed_vars)} variables were not saved in original session")
         
         # Restore UI state if available
         ui_state = metadata.get('ui_state')
@@ -376,8 +377,8 @@ def load_game_state():
         return True
         
     except Exception as e:
-        print(f"❌ Error loading safe deep state: {e}")
-        print("🔄 Starting with default values")
+        print(f"Error loading safe deep state: {e}")
+        print("Starting with default values")
         return False
 
 def track_bank_tab_change():
@@ -388,7 +389,7 @@ def track_bank_tab_change():
             active_tab = bank_tabview_ref.get()
             current_ui_state['bank_active_tab'] = active_tab
             current_ui_state['last_update'] = datetime.datetime.now().isoformat()
-            print(f"🏦 Bank tab changed to: {active_tab}")
+            print(f"Bank tab changed to: {active_tab}")
             
             # Trigger save after tab change
             if 'app' in globals():
@@ -398,7 +399,7 @@ def track_bank_tab_change():
                     pass
                 globals()['pending_save_id'] = globals()['app'].after(2000, save_game_state)  # Save after 2 seconds
         except Exception as e:
-            print(f"⚠️ Could not track bank tab change: {e}")
+            print(f"Could not track bank tab change: {e}")
 
 def track_ui_change(function_name):
     """Track when UI state changes"""
@@ -423,10 +424,12 @@ def track_ui_change(function_name):
 
 def auto_save():
     """Automatically save the game state and schedule the next auto-save"""
-    save_game_state()
-    # Schedule next auto-save in 30 seconds (shorter interval for deep saves)
-    if 'app' in globals():
-        app.after(30000, auto_save)
+    if lost == False:
+        save_game_state()
+
+        if 'app' in globals():
+            app.after(30000, auto_save)
+        
 
 def add_transaction(transaction_type: str, amount: int, description: str) -> None:
     """Add a transaction to the history for banking tracking"""
@@ -451,6 +454,9 @@ def reload() -> None:
     exit(0)
 
 def show_casino() -> None:
+    if lost == True:
+        return
+    
     track_ui_change('show_casino')  # Track UI state change
     global current_frame, current_title, current_bet_frame, current_balance_label, balance, current_bet, game_active
     if current_frame:
@@ -2496,9 +2502,9 @@ def show_bank() -> None:
     if current_ui_state.get('bank_active_tab'):
         try:
             bank_tabview.set(current_ui_state['bank_active_tab'])
-            print(f"🏦 Restored bank tab: {current_ui_state['bank_active_tab']}")
+            print(f"Restored bank tab: {current_ui_state['bank_active_tab']}")
         except Exception as e:
-            print(f"⚠️ Could not restore bank tab, using default: {e}")
+            print(f"Could not restore bank tab, using default: {e}")
             bank_tabview.set("📊 Dashboard")
     else:
         # Set default tab
@@ -3545,9 +3551,126 @@ main_frame = customtkinter.CTkFrame(master=app,
                                    corner_radius=0)
 main_frame.pack(side="left", fill="both", expand=True)
 
-# Start auto-save timer
-auto_save()
+def auto_lose():
+    global balance, current_balance_label, loan_info, inventory, game_active
+
+    # Only check for lose condition if balance is 0 or negative
+    if balance <= 0:
+        # Check if player still has a loan available (not already taken)
+        can_take_loan = loan_info["amount"] == 0 and loan_info["remaining_payments"] == 0
+        
+        # Check if player has inventory items to sell
+        has_inventory_items = any(inventory.get(key, 0) > 0 for key in inventory.keys()) if inventory else False
+        
+        # Player can still play if they can take a loan OR have inventory items
+        if can_take_loan or has_inventory_items:
+            # Game continues - player still has options
+            pass
+        else:
+            # Game over - player has no money, no loan option, and no inventory
+            game_active = False
+            
+            # Clear the save file permanently
+            try:
+                os.remove("gambling_simulator_save.dill")
+            except:
+                pass
+            
+            # Clear the entire UI
+            try:
+                for widget in app.winfo_children():
+                    widget.destroy()
+            except:
+                pass
+            
+            # Create lose screen
+            lose_frame = customtkinter.CTkFrame(master=app,
+                                               fg_color=("#F0F0F0", "#1A1A1A"),
+                                               corner_radius=0)
+            lose_frame.pack(fill="both", expand=True)
+
+            # Game Over title
+            game_over_title = customtkinter.CTkLabel(master=lose_frame, 
+                                                    text="🎰 GAME OVER! 🎰", 
+                                                    font=("Arial", 48, "bold"),
+                                                    text_color=("#E74C3C", "#C0392B"))
+            game_over_title.pack(pady=(100, 30))
+            
+            # Lose message
+            lose_message = customtkinter.CTkLabel(master=lose_frame, 
+                                                 text="💸 You ran out of money with no way to recover!\n\n" +
+                                                      "❌ No loan available (already used)\n" +
+                                                      "❌ No inventory items to sell\n" +
+                                                      "❌ No money left to play\n\n" +
+                                                      "💡 Tips for next time:\n" +
+                                                      "• Don't use your loan too early\n" +
+                                                      "• Buy items from the shop as backup\n" +
+                                                      "• Don't bet everything at once!\n\n" +
+                                                      "🔄 Click below to start a new game!", 
+                                                 font=("Arial", 16),
+                                                 text_color=("#FFFFFF", "#FFFFFF"),
+                                                 justify="center")
+            lose_message.pack(pady=(0, 40))
+            
+            # New Game button
+            new_game_btn = customtkinter.CTkButton(master=lose_frame, 
+                                                  text="🎮 Start New Game", 
+                                                  width=200, height=50,
+                                                  font=("Arial", 18, "bold"),
+                                                  fg_color=("#2ECC71", "#27AE60"),
+                                                  hover_color=("#58D68D", "#2ECC71"),
+                                                  command=restart_game)
+            new_game_btn.pack(pady=20)
+            
+            # Don't continue the auto_lose loop
+            return
+    
+    # Continue checking if game is still active
+    if 'app' in globals() and game_active:
+        app.after(1500, auto_lose)
+
+def restart_game():
+    """Restart the game with fresh state"""
+    global balance, inventory, loan_info, transaction_history, game_active
+    
+    # Reset all game state
+    balance = 1000
+    inventory = {}
+    loan_info = {"amount": 0, "interest_rate": 0.0, "monthly_payment": 0, "remaining_payments": 0}
+    transaction_history = []
+    game_active = True
+    
+    # Clear save file
+    try:
+        os.remove("gambling_simulator_save.dill")
+    except:
+        pass
+    
+    # Clear the UI
+    try:
+        for widget in app.winfo_children():
+            widget.destroy()
+    except:
+        pass
+    
+    # Recreate the main UI
+    create_sidebar(buttons)
+    
+    global main_frame
+    main_frame = customtkinter.CTkFrame(master=app,
+                                       fg_color=("#F0F0F0", "#1A1A1A"),
+                                       corner_radius=0)
+    main_frame.pack(side="left", fill="both", expand=True)
+    
+    # Show casino and restart auto functions
+    show_casino()
+    auto_lose()
+    auto_save()
 
 show_casino()
+
+auto_lose()
+
+auto_save()
 
 app.mainloop()
