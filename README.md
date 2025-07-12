@@ -11,3 +11,6 @@ Start with a small fortune and try your luck — just don’t lose it all!
 5. Have fun with the game
 
 **Note**: There will be a normal documentation soon but for now this is the only thing you have.
+
+AI Disclaimer:
+I user AI to build some parts of the program.
