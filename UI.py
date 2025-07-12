@@ -8,8 +8,21 @@ import os
 from typing import Dict, Callable
 
 app = customtkinter.CTk()
-app.geometry("1200x700")
+
+scaling_factor = 0.6
+
+def update_window_size():
+    """Update window size based on current scaling_factor"""
+    global app, scaling_factor
+    width = app.winfo_screenwidth() * scaling_factor
+    height = app.winfo_screenheight() * scaling_factor
+    print(f"Updating window size: {width}x{height} (scaling factor: {scaling_factor})")
+    app.geometry(f"{int(width)}x{int(height)}")
+
+# Set initial window size
+update_window_size()
 app.title("Gambling Simulator")
+
 
 # Save game when window is closed
 def on_window_close():
@@ -47,7 +60,6 @@ shop_items = {
 }
 
 # Price update system
-import time
 last_price_update = time.time()
 price_update_interval = 30  # Update prices every 30 seconds
 
@@ -136,7 +148,7 @@ EXCLUDED_VARS = {
     'save_game_state', 'load_game_state', 'auto_save', 'reload', 'on_window_close', 'track_ui_change',
     'capture_deep_state', 'restore_ui_state',
     'show_casino', 'show_number_guesser', 'show_roulette', 'show_blackjack', 'show_dice_roll', 'show_slot_machine',
-    'show_bank', 'show_shop', 'show_settings', 'create_sidebar', 'update_bank_display',
+    'show_bank', 'show_shop', 'show_settings', 'create_sidebar', 'update_bank_display', 'scaling_factor', 'update_window_size',
     # Timer and async IDs
     'pending_save_id',
     # Module level variables that shouldn't be saved
@@ -220,18 +232,14 @@ def capture_deep_state():
             'window_info': {}
         }
         
-        # Try to capture basic window information (serializable parts only)
+        # Skip window size information - we don't want to save/restore window geometry
         try:
             if 'app' in current_globals:
                 app_obj = current_globals['app']
                 if hasattr(app_obj, 'winfo_exists') and app_obj.winfo_exists():
                     ui_state_snapshot['window_info'] = {
-                        'geometry': app_obj.geometry(),
-                        'title': app_obj.title(),
-                        'width': app_obj.winfo_width(),
-                        'height': app_obj.winfo_height(),
-                        'x': app_obj.winfo_x(),
-                        'y': app_obj.winfo_y()
+                        'title': app_obj.title()
+                        # Geometry, size and position removed - use default values instead
                     }
         except Exception as e:
             ui_state_snapshot['window_info']['error'] = str(e)
@@ -278,11 +286,8 @@ def save_game_state():
         if failed_vars:
             print(f"Could not save {len(failed_vars)} variables: {', '.join([v[0] for v in failed_vars[:3]])}{'...' if len(failed_vars) > 3 else ''}")
         
-        # Show UI state info
-        metadata = game_state.get('_save_metadata', {})
-        ui_state = metadata.get('ui_state', {})
-        if ui_state.get('window_info'):
-            print(f"Window state captured: {ui_state['window_info'].get('geometry', 'unknown')}")
+        # Note: Window size/geometry is intentionally not saved
+        print("Window size not saved - will use default size on restart")
         
     except Exception as e:
         print(f"Error saving safe deep state: {e}")
@@ -307,16 +312,17 @@ def restore_ui_state(ui_state_snapshot):
             if 'app' in globals():
                 globals()['app'].after(100, lambda: globals()[active_function]())
                 
-        # Try to restore window state
+        # Window size is determined by initial scaling_factor only - not saved/restored
+                
+        # Restore only window title, not size/position
         window_info = ui_state_snapshot.get('window_info', {})
         if window_info and 'app' in globals():
             try:
-                if 'geometry' in window_info:
-                    globals()['app'].after(200, lambda: globals()['app'].geometry(window_info['geometry']))
+                # Only restore title, skip geometry/size/position
                 if 'title' in window_info:
                     globals()['app'].title(window_info['title'])
             except Exception as e:
-                print(f"Could not fully restore window state: {e}")
+                print(f"Could not restore window title: {e}")
         
         return True
         
