@@ -1,4 +1,3 @@
-# Installation
 # Easy
 Go to the repository and open a terminal.
 ### Windows

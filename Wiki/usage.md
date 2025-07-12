@@ -1,4 +1,3 @@
-# Usage
 To use the program after you followed the installation instructions open a terminal in the repository. Then repeat with the instruction for you system:
 
 ## Windows / Linux
