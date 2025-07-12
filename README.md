@@ -13,4 +13,4 @@ Start with a small fortune and try your luck — just don’t lose it all!
 **Note**: There will be a normal documentation soon but for now this is the only thing you have.
 
 AI Disclaimer:
-I user AI to build some parts of the program.
+I user AI to build some parts of the program / to correct parts of the *.md files
