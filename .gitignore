@@ -1,3 +1,6 @@
 gambling_simulator_save.dill
 __pycache__
 venv
+build
+gambling_simulator_save
+Gambling_Simulator.egg-info

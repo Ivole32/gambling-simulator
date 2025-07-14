@@ -1,3 +1,2 @@
-rich==14.0.0
-customtkinter
-dill
+customtkinter==5.2.2
+dill==0.4.0
