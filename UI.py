@@ -9,7 +9,7 @@ from typing import Dict, Callable
 
 app = customtkinter.CTk()
 
-scaling_factor = 0.6
+scaling_factor = 0.95
 
 def update_window_size():
     """Update window size based on current scaling_factor"""
