@@ -4,12 +4,13 @@ import random
 import time
 import datetime
 import dill
+import sys
 import os
 from typing import Dict, Callable
 
 app = customtkinter.CTk()
 
-scaling_factor = 0.95
+scaling_factor = 0.75
 
 def update_window_size():
     """Update window size based on current scaling_factor"""
@@ -456,7 +457,11 @@ def reload() -> None:
     save_game_state()  # Save before reloading
     app.quit()
     app.destroy()
-    subprocess.run(["python", r".\ui.py"], shell=True)
+
+    file_path = os.path.abspath(__file__)
+    executable_path = sys.executable
+
+    subprocess.run([f"{executable_path}", f"{file_path}"], shell=True)
     exit(0)
 
 def show_casino() -> None:
