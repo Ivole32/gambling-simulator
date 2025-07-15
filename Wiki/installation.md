@@ -3,6 +3,10 @@ Open up a terminal and run ```pipx install gambling-simulator```
 
 If pipx isn't installed run ```pip install pipx``` and rerun the command above.
 
+If you are on windows you have to run the commands int the output of the command above.
+
+**Note:** If running the program trows an error (like ```Can't find a usable init.tcl```) on windows try to install it with pip instead of pipx
+
 # Advanced
 ## Option 1
 Go to the repository and open a terminal.
